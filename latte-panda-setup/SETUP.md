@@ -200,3 +200,37 @@ sudo dpkg -i libprotobuf17_3.6.1.3-2_amd64.deb
 #tell apt to resolve missing dependencies
 sudo apt -f install 
 ```
+
+## Test KapohoBay Connection
+Plug in the the KB Board
+```bash
+export KAPOHOBAY=1
+lsusb -t
+```
+
+`lsusb -t` should output the below: 
+![KB Drivers](images/device_drivers_kb.png)
+
+Disable the default device driver with `sudo rmmod ftdi_sio`
+
+Now when `lsusb -t` is run, the output should look like this: 
+![KB Driver New](images/disabled_default_driver_kb.png)
+
+
+Now verify the Loihi connection, run: 
+```bash
+python -c "import nxsdk; print(nxsdk.__path__)"
+cd [path returned from previous command]
+`python3 -c "import nxsdk; print(nxsdk.__path__[0])"`/bin/x86/kb/nx --test-fpio
+#If you have problems with the above command, with error 'libi2c.so.0 cannot open`
+
+sudo apt install plocate
+sudo apt-get update
+sudo apt-get install libi2c-dev i2c-tools
+sudo updatedb
+#Now run the locate utility and you should see libi2c.so.0 directory
+locate libi2c.so.0
+```
+
+After running the `/bin/x86/kb/nx` command you should get this output
+![KB Connection](images/kb-connect-confirmed.png)
