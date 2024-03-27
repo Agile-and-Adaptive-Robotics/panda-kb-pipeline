@@ -99,22 +99,28 @@ def runNetwork(numCoresPerChip=1, numCompartmentsPerCore=1,
     return eProbe, vProbe, sProbe, powerStats
 
 
+def run_timed_network():
+    return runNetwork(
+        numCoresPerChip=1, 
+        numCompartmentsPerCore=1024, 
+        numAxonsPerCompartment=1, 
+        numSynPerAxon=256, 
+        interSpikeInterval=1000, 
+        runtime=1000,
+        bufferSize=1024,
+        tEpoch=16,
+        createDebugProbe=False
+    )
+
 if __name__ == '__main__':
     
     #Run network and collection execution time probes and times total execution time of network
     @timeit
-    eProbeWithProbes, _, _, _ = runNetwork(
-    numCoresPerChip=1, 
-    numCompartmentsPerCore=1024, 
-    numAxonsPerCompartment=1, 
-    numSynPerAxon=256, 
-    interSpikeInterval=1000, 
-    runtime=1000,
-    bufferSize=1024,
-    tEpoch=16,
-    createDebugProbe=False
-)
-    
+    def execute_network():
+        eProbeWithProbes, _, _, _ = run_timed_network()
+        return eProbeWithProbes
+
+    eProbeWithProbes = execute_network()
     print(eProbeWithProbes)
 
     #plt.figure(figsize=(20, 5))
