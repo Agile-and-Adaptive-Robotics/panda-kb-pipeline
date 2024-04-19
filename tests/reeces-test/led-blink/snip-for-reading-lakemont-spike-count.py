@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
 
     board.run(100, aSync=True)
-
+    # print(spikeCntrChannel.read(100)) doesn't work in real time, must read whole buffer otherwise stalls???
     spikeCntr = []
     spikeCntr.append(spikeCntrChannel.read(100))
     print(spikeCntr)
