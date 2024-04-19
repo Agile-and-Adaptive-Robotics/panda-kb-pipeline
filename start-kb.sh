@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Source the conda configuration
+source $HOME/anaconda3/etc/profile.d/conda.sh
+
 # Activate the loihi Conda environment
 conda activate loihi
 

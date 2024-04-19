@@ -1,4 +1,4 @@
-name: loihi3
+name: loihi
 channels:
   - defaults
 dependencies:
@@ -60,7 +60,7 @@ dependencies:
       - memory-profiler==0.61.0
       - networkx==2.6.3
       - numpy==1.21.6
-      - nxsdk==1.0.0
+      #- nxsdk==1.0.0 comment out, perform install before running conda env update -f panda-kb-pipeline/environment.yml
       - oauthlib==3.2.2
       - openpyxl==3.1.2
       - opt-einsum==3.3.0
