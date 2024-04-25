@@ -25,9 +25,14 @@ from nxsdk.graph.monitor.probes import *
 from benchmark_kit.perf_wrappers import timeit
 
 @timeit
+#bulk read timer
+def read_spike_counter(spikeCntrChannel, num_reads = 100):
+    results = [spikeCntrChannel.read(1) for _ in range(num_reads)]
+    return results
+'''one shot read timer
 def read_spike_counter(spikeCntrChannel):
     return spikeCntrChannel.read(1)
-
+'''
 if __name__ == '__main__':
 
     #get net object
@@ -102,8 +107,12 @@ if __name__ == '__main__':
     board.run(100, aSync=True)
     # print(spikeCntrChannel.read(100)) doesn't work in real time, must read whole buffer otherwise stalls???
     steps = 0
-    execution_times = []
-    
+    #execution_times = []
+    execution_time = 0
+    spikeCntr = []
+
+    spikeCntr, execution_time = read_spike_counter(spikeCntrChannel)
+    '''
     for spike in spikeTimes0:
         # Call the function and capture both return values
         curr_count, elapsed_time = read_spike_counter(spikeCntrChannel)
@@ -114,9 +123,11 @@ if __name__ == '__main__':
         print(curr_count)  # Print the current count
         prev_count = curr_count  # Update the previous count
         steps += 1  # Increment the step count
+    '''
 
     #curr_count = spikeCntrChannel.read(1)    
-    print(steps)
+    print(spikeCntr)
+    print("Execution time of 100 reads: {:.8f} s" .format(execution_time))
     #spikeCntr = []
     #spikeCntr.append(spikeCntrChannel.read(100))
     #print(spikeCntr)
@@ -126,10 +137,10 @@ if __name__ == '__main__':
 
 
     # Convert execution times to frequencies (in Hz)
-    frequencies = [1 / time for time in execution_times if time > 0]  # Avoid division by zero
+    # frequencies = [1 / time for time in execution_times if time > 0]  # Avoid division by zero
 
     # Compute the average frequency
-    average_frequency = sum(frequencies) / len(frequencies) if frequencies else 0
-
-    print("Frequencies: ", frequencies)
-    print("Average Frequency: {:.2f} Hz".format(average_frequency))
+    # average_frequency = sum(frequencies) / len(frequencies) if frequencies else 0
+    average_frequency = 1 / (execution_time / 100)
+    # print("Frequencies: ", frequencies)
+    print("Average Frequency: {:.5f} Hz".format(average_frequency))
