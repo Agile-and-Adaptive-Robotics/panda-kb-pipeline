@@ -351,3 +351,7 @@ conda install grpcio
 grpc::ServerBuilder::ServerBuilder()
 ```
 
+# Next steps: 
+Once the latte panda board is setup with the NxSDK from Intel, you can start running nxsdk tutorials, or  
+the source code found in this repo. The recommended next step, is to check out the `latte-panda-setup/pinpong-library/` directory.  
+This library is used to interface with the ATMEGA32UA Co-processor and the boards header pins. 
