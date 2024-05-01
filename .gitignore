@@ -1,2 +1,4 @@
 nxsdk-apps/
 nxsdk/
+*.csv
+tests/oscillator/SineWaveGenerator
