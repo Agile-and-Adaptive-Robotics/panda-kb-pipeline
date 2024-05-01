@@ -1,3 +1,22 @@
+/**
+ * @file SineWaveGenerator.cpp
+ * @brief This Python module defines the OscGenProcess class, which generates a sinusoidal waveform 
+ * based on specified amplitude, frequency, and phase shift. The class can run the waveform generation 
+ * in a separate process, sends spikes based on current wave output frequency, and save the 
+ * resulting data to a CSV file. This module is designed for applications where real-time waveform 
+ * generation is need to model oscillator neural stimulation. 
+ *
+ * The wave uses the below formulat to determine spike signal frequencies: 
+ * dt_now = amplitude * sin(omega * t + phase shift)
+ * --> IF enough time has passed since last spike time, send another spike <--
+ *
+ * Usage:
+ *  - Instantiate a SineWaveGenerator object with desired waveform parameters.
+ *  - Start the waveform generation in a separate thread.
+ *  - Stop the waveform generation after a specified duration.
+ *  - Save the collected data to a CSV file.
+ *
+ */
 #include <iostream>
 #include <cmath>
 #include <chrono>
@@ -17,10 +36,19 @@ private:
     std::mutex mtx;
 
 public:
+    /**
+     * Constructor for SineWaveGenerator.
+     * @param amp The amplitude of the sine wave.
+     * @param freq The frequency of the sine wave in Hz.
+     * @param phase The phase shift of the sine wave in radians.
+     */
     SineWaveGenerator(double amp, double freq, double phase)
         : amplitude(amp), frequency(freq), phaseShift(phase) {
     }
-
+    /**
+     * Generates the sine wave continuously until stopped. Records the time, output value, and spike status.
+     * Spikes are determined based on the time interval calculated from the waveform value.
+     */
     void generateSineWave() {
         auto startTime = std::chrono::high_resolution_clock::now();
         double omega = 2 * M_PI * frequency;
@@ -50,11 +78,11 @@ public:
             std::this_thread::sleep_for(std::chrono::milliseconds(1)); // Sleep to control the generation rate
         }
     }
-
+    //Stops waveform generation
     void stop() {
         running = false;
     }
-
+    //Save data to file for analysis in oscillator.ipynb
     void saveDataToFile(const std::string& filename) {
         std::ofstream file(filename);
         if (file.is_open()) {
