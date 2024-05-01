@@ -2,13 +2,24 @@
 
 CXX = g++
 CXXFLAGS = -std=c++11 -pthread
-TARGET = SineWaveGenerator
-SRC = SineWaveGenerator.cpp
 
-all: $(TARGET)
+# Targets for both versions
+TARGET1 = SineWaveGenerator
+SRC1 = SineWaveGenerator.cpp
 
-$(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+TARGET2 = SineWaveGenerator_v2
+SRC2 = SineWaveGenerator_v2.cpp
+
+# Default target
+all: $(TARGET1) $(TARGET2)
+
+# Target for the first version
+$(TARGET1): $(SRC1)
+	$(CXX) $(CXXFLAGS) -o $(TARGET1) $(SRC1)
+
+# Target for the second version
+$(TARGET2): $(SRC2)
+	$(CXX) $(CXXFLAGS) -o $(TARGET2) $(SRC2)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET1) $(TARGET2)
