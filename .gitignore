@@ -2,3 +2,5 @@ nxsdk-apps/
 nxsdk/
 *.csv
 tests/oscillator/SineWaveGenerator
+venv/
+oryx-build-commands.txt
