@@ -3,7 +3,7 @@ This Python module defines the OscGenProcess class, which generates a sinusoidal
 based on specified amplitude, frequency, and phase shift. The class can run the waveform generation 
 in a separate process, sends spikes based on current wave output frequency, and save the 
 resulting data to a CSV file. This module is designed for applications where real-time waveform 
-generation is need to model oscillator neural stimulation. 
+generation is needed to model oscillator neural stimulation. 
 
 The wave uses the below formulat to determine spike signal frequencies: 
 dt_now = amplitude * sin(omega * t + phase shift)
@@ -53,7 +53,7 @@ class OscGenProcess:
         self.phase_shift = phase_shift
         self.duration = duration
         self.omega = 2 * np.pi * self.frequency
-        self.maxDT = 0.25e-3 #[ms]
+        self.maxDT = 5e-3 #[sec] this equates to a max frequency of 200Hz
         manager = multiprocessing.Manager()
         self.times = manager.list()
         self.outputs = manager.list()
@@ -67,25 +67,26 @@ class OscGenProcess:
         """
         start_time = time.perf_counter()
         t_last_spike = 0
-        last_time = 0
 
         if self.duration is not None:
             end_time = start_time + self.duration
 
         while not self.stop_event.is_set() and (self.duration is None or time.perf_counter() - start_time < end_time):
             current_time = time.perf_counter() - start_time
-            if(current_time - last_time > self.maxDT):
-                f_now = self.amplitude * np.sin(self.omega * current_time + self.phase_shift)
+            was_spike_sent = 0
+            f_now = self.amplitude * np.sin(self.omega * current_time + self.phase_shift)
+            # Check to send spike if enough time has passed so not to violate max frequency
+            if(current_time - t_last_spike > self.maxDT):
                 dt_now = abs(1/f_now)
-                was_spike_sent = 0
+                # If the dt since last spike is greater than current frequency of oscillator -> send a spike
                 if(current_time - t_last_spike > dt_now):
                     was_spike_sent = 1
                     t_last_spike = current_time
 
-                self.times.append(current_time * 1000)  # Convert time to milliseconds
-                self.outputs.append(f_now)
-                self.spikes.append(was_spike_sent)
-                last_time = current_time
+            #Data output for shared file
+            self.times.append(current_time * 1000)  # Convert time to milliseconds
+            self.outputs.append(f_now)
+            self.spikes.append(was_spike_sent)
 
     def run(self):
         """
