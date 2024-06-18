@@ -4,6 +4,7 @@ Author: Reece Wayt
 Version: 1.0.0
 
 Code adapted from "tutorial_24_control_loop_using_rospy.py" in the NxSDK tutorials package
+k_interactive_spike_sender_receiver.ipynb in the NxSDK tutorials package
 
 """
 import time
@@ -20,6 +21,29 @@ if not haveDisply:
     mpl.use('Agg')
 
 '''
+NUM_PLOTS_PER_RECEIVER = 1
+class Callable:
+    def __init__(self, index):
+        # data will hold the spike activity for the 3 compartments associated with a spikereceiver
+        # Each spikereceiver will have its own Callable instance as the callback. This is denoted by index
+        self.data = [[] for i in range(NUM_PLOTS_PER_RECEIVER)]
+        self.index = index
+
+    def __call__(self, *args, **kwargs):
+        # At every invocation of this method, new data since the last invocation will be passed along.
+        # args[0] essentially is a list[list]. Length of the parent list is the number of compartments 
+        # connecting to this spike receiver while each sublist is the timeseries data assciated with that
+        # compartment accrued since the last invocation. len(args) is 1.
+        for compartmentId, tsData in enumerate(args[0]):
+            self.data[compartmentId].extend(tsData)
+        
+callable1 = Callable(1)
+callable2 = Callable(2)
+
+# Register these callable objects as callbacks
+spikeReceiver1.callback(callable1)
+spikeReceiver2.callback(callable2)
+
 def setupNetwork():
 
     # Create a network
@@ -44,57 +68,64 @@ def setupNetwork():
                                          compartmentVoltageDecay=256,
                                          compartmentCurrentDecay=410)
 
-    compartment1 = net.createCompartment(prototype1)
+    neuron1 = net.createCompartment(prototype1)
 
-    prototype2 = nx.CompartmentPrototype(vThMant=10,
-                                         compartmentVoltageDecay=256,
-                                         compartmentCurrentDecay=410)
+    
+    neuron2 = net.createCompartment(prototype1)
 
-    compartment2 = net.createCompartment(prototype2)
-    compartment3 = net.createCompartment(prototype2)
+   #TODO: get compartment nodeId and Group.id 
+   #nodeId is the compartment index
+   # You can use kewords nxCompartment and nxCompartmentGroup in the C API
+   #Compartment and compartment groups are indexed in the order they are created starting at 0
 
-    # Excitatory synapse (connection)
-    connProto1 = nx.ConnectionPrototype(weight=4, compressionMode=3)
-    net._createConnection(compartment1, compartment2, connProto1)
+    print("Compartment 1 index is ", neuron1.nodeId)
+    print("Compartment 2 index is ", neuron2.nodeId)
 
-    # Inhibitatory synapse (connection)
-    connProto2 = nx.ConnectionPrototype(weight=-4, compressionMode=3)
-    net._createConnection(compartment1, compartment3, connProto2)
+    #Connection prototype
+    spikeConnProto = nx.ConnectionPrototype(weight = 128)
 
-    probeParameters = [nx.ProbeParameter.COMPARTMENT_CURRENT,
-                       nx.ProbeParameter.COMPARTMENT_VOLTAGE]
-    # Use default probe conditions - i.e. probeConditions=None
-    probeConditions = None
-    # Create a compartment probe to probe the states of compartment1
-    cx1Probes = compartment1.probe(probeParameters, probeConditions)
-    # Create a compartment probe to probe the states of compartment2
-    cx2Probes = compartment2.probe(probeParameters, probeConditions)
-    # Create a compartment probe to probe the states of compartment3
-    cx3Probes = compartment3.probe(probeParameters, probeConditions)
+    #Spike generator process for neuron1
+    interactiveSpikeGen1 = net.createInteractiveSpikeGenProcess(numPorts=1)
+    interactiveSpikeGen1_connection = interactiveSpikeGen1.connect(neuron1, spikeConnProto)
+    #Spike receiver process for neuron1
+    spikeReceiver1 = nx.SpikeReceiver(net)
+    neuron1.connect(spikeReceiver1)
 
-    # cx1Probes is a list of probe objects for compartment1.
-    # cx1Probes[0] is the compartment voltage probe and cx1Probes[1] is the compartment current respectively
+    #Spike generator process for neuron2
+    interactiveSpikeGen2 = net.createInteractiveSpikeGenProcess(numPorts=1)
+    interactiveSpikeGen2_connection = interactiveSpikeGen2.connect(neuron2, spikeConnProto)
+    #Spike receiver process for neuron2
+    spikeReceiver2 = nx.SpikeReceiver(net)
+    neuron2.connect(spikeReceiver2)
 
-    # uProbes below is the list of all the compartment current probes
-    uProbes = [cx1Probes[0], cx2Probes[0], cx3Probes[0]]
-    # vProbes below is the list of all the compartment voltage probes
-    vProbes = [cx1Probes[1], cx2Probes[1], cx3Probes[1]]
 
-   
+    callable1 = Callable(1)
+    callable2 = Callable(2)
 
-    #compile defined network
+    # Register these callable objects as callbacks
+    spikeReceiver1.callback(callable1)
+    spikeReceiver2.callback(callable2)
+
+    #Compile defined network
     compiler = nx.N2Compiler()
     #receive board object required by SNIPs
     board = compiler.compile(net)
 
 
     # Return the configured probes
-    return board, uProbes, vProbes
+    return board, net
+
+def create_SpikeGenProcess(net, num_spike_generators):
+    runtime_spike_generators = []
+    # Create a spike generator process
+    for i in range(num_spike_generators):
+        runtime_spike_generators[i] = net.createInteractive
+
 
 if __name__ == '__main__':
 
     #Configure network
-    board, uProbes, vProbes = setupNetwork()
+    board, net = setupNetwork()
 
     # Define directory where SNIP C-code is located
     includeDir = os.path.dirname(os.path.realpath(__file__))
@@ -168,7 +199,6 @@ if __name__ == '__main__':
             current_time = time.time()
             if current_time - start_timer >= timeout_period:
                 timeout = True
-
 
     
     board.finishRun()
