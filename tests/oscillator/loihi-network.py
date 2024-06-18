@@ -6,7 +6,7 @@ Version: 1.0.0
 Code adapted from "tutorial_24_control_loop_using_rospy.py" in the NxSDK tutorials package
 
 """
-
+import time
 import os
 from nxsdk.graph.channel import Channel
 import nxsdk.api.n2a as nx
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
     
     timeout = False
-    timeout_period = 5 # 5 [s]
+    timeout_period = 2 # 5 [s]
 
     start_timer= time.time()
 
