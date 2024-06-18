@@ -3,9 +3,7 @@ Author: Reece Wayt
 
 Version: 1.0.0
 
-Code Adopted From: 
-tutorial_02_single_compartment_with_bias_connecting_to_two_others.py
-All snip tutorial in the NxSDK
+Code adapted from "tutorial_24_control_loop_using_rospy.py" in the NxSDK tutorials package
 
 """
 
@@ -14,7 +12,14 @@ from nxsdk.graph.channel import Channel
 import nxsdk.api.n2a as nx
 from nxsdk.arch.n2a.n2board import N2Board
 from nxsdk.graph.processes.phase_enums import Phase
+'''import matplotlib.pyplot as plt
+import matplotlib as mpl
 
+haveDisply = "DISPLAY" in os.environ
+if not haveDisply:
+    mpl.use('Agg')
+
+'''
 def setupNetwork():
 
     # Create a network
@@ -92,61 +97,86 @@ if __name__ == '__main__':
     board, uProbes, vProbes = setupNetwork()
 
     # Define directory where SNIP C-code is located
-    includeDir = os.getcwd()
+    includeDir = os.path.dirname(os.path.realpath(__file__))
+    cFilePath = os.path.join(includeDir, "spiking-snip.c")
+    funcName = "run_spiking"
+    guardName = "do_spiking"
 
-
+    
     # Create SNIP, define which code to execute and in which phase of the NxRuntime execution cycle
-    spikeProcess = board.createProcess(name="spikingProcess",
+    # Phase.EMBEDDED_MGMT - Execute SNIP on embedded management core. Enums are defined in nxsdk.graph.processes.phase
+    # The API directory file for phase enums is nxsdk/graph/processes/phase_enums.py
+    spikeProcess = board.createSnip(phase = Phase.EMBEDDED_SPIKING,
                                      includeDir=includeDir,
-                                     cFilePath = includeDir + "/spiking-snip.c",
-                                     funcName = "run_spiking",
-                                     guardName = "do_spiking",
-                                     phase = "spiking")
+                                     cFilePath = cFilePath,
+                                     funcName = funcName,
+                                     guardName = guardName)
     
 
 
     #Create send channel SuperHost(computer) --> SnipProcess(Loihi LMT x86 Chip)
-    sendSpikeChannel = board.createChannel(b'nxSendChannel', "int", 1)
+    """
+        createChannel API creates a channel object that can be used to send and receive data between SuperHost (computer) and Host
+        See NxNet API and Programming SNIPs section in the user guide for more information
+        @Params: 
+        - name: Name of the channel
+        - messageSize: Size of the message in bytes, MUST BE A MULTIPLE OF 4
+        - numElements: Number of elements the channel can hold
+    """
+    sendSpikeChannel = board.createChannel(name = b'nxSendChannel', 
+                                           messageSize = 4, 
+                                           numElements = 1)
+     #Create send channel SuperHost(computer) --> SnipProcess(Loihi LMT x86 Chip)
     sendSpikeChannel.connect(None, spikeProcess)
-    #Create read channel SnipProcess --> SuperHost
-    recvSpikeChannel = board.createChannel(b'nxRecvChannel', "int", 1)
+    
+    """ Create Receive channel"""
+    recvSpikeChannel = board.createChannel(name = b'nxRecvChannel', 
+                                           messageSize = 4, 
+                                           numElements = 1000)
     recvSpikeChannel.connect(spikeProcess, None)
 
-    #TODO: aSync - False means blocking
-    board.run(30, aSync = False)
 
+    board.start()
+
+    board.run(100, aSync = True)
+
+    """
+        The read() method is part of the channel API, see Communicating vis Channels section of NxSDK documentation
+
+        IMPORTANT NOTE: the read method is blocking, therefore, it will block if now data is available
+        
+        Return value: The read method returns a list of elements, so in the below we are indexing the first and only value in 
+        the return list. For example this code would return the same thing
+        time_step = recvSpikeChannel.read(1)
+        value = time_step[0]
+    """
+
+    
+    timeout = False
+    timeout_period = 5 # 5 [s]
+
+    start_timer= time.time()
+
+    while not timeout:
+        if recvSpikeChannel.probe(): 
+            #Data is available to read
+            time_step = recvSpikeChannel.read(1)[0]
+            print(f"Data received: {time_step}")
+            start_timer = time.time()
+        else:
+            #Check for timeout 
+            current_time = time.time()
+            if current_time - start_timer >= timeout_period:
+                timeout = True
+
+
+    
+    board.finishRun()
+    board.disconnect()
 
 
     # -------------------------------------------------------------------------
-    # Plot
+    # TODO: Plot probe data to implement later
     # -------------------------------------------------------------------------
-
-    # The explanation of the behavior is in the tutorial introduction above.
-    # The plot for compartment2 voltage appears to not always reach the
-    # threshold of 640 when it spikes.  This is because when v crosses
-    # the threshold during time step t, it gets reset immediately. Since the
-    # monitor reads out the v value at the end of the time step, the
-    # intermediate values are not visible from the plot.  Compartment1 voltage
-    # is more consistent because it is only driven by a bias. Compartment2
-    # receives time varying input and thus the last value below threshold is
-    # always different and thus it appears to be spiking at different levels.
-    fig = plt.figure(1002)
-    k = 1
-    for j in range(0, 3):
-        plt.subplot(3, 2, k)
-        uProbes[j].plot()
-        plt.title('u'+str(j))
-        k += 1
-        plt.subplot(3, 2, k)
-        vProbes[j].plot()
-        plt.title('v'+str(j))
-        k += 1
-    if haveDisplay:
-        plt.show()
-    else:
-        fileName = "tutorial_02_fig1002.png"
-        print("No display available, saving to file " + fileName + ".")
-        fig.savefig(fileName)
-
-
+    
 
