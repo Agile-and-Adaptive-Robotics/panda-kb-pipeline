@@ -9,13 +9,11 @@ All snip tutorial in the NxSDK
 
 """
 
-from abs import ABC 
-from threading  import Thread
 import os
-import atexit
 from nxsdk.graph.channel import Channel
+import nxsdk.api.n2a as nx
 from nxsdk.arch.n2a.n2board import N2Board
-from nxsdk.graph.processes.phase.enums import Phase
+from nxsdk.graph.processes.phase_enums import Phase
 
 def setupNetwork():
 
@@ -84,18 +82,6 @@ def setupNetwork():
     #receive board object required by SNIPs
     board = compiler.compile(net)
 
-    # Define directory where SNIP C-code is located
-    includeDir = os.getcwd()
-
-
-    # Create SNIP, define which code to execute and in which phase of the NxRuntime execution cycle
-    runMgmtProcess = board.createProcess("runMgmt",
-                                     includeDir=includeDir,
-                                     cFilePath = includeDir + "/runmgmt.c",
-                                     funcName = "run_mgmt",
-                                     guardName = "do_run_mgmt",
-                                     phase = "mgmt")
-    
 
     # Return the configured probes
     return board, uProbes, vProbes
@@ -112,7 +98,7 @@ if __name__ == '__main__':
     # Create SNIP, define which code to execute and in which phase of the NxRuntime execution cycle
     spikeProcess = board.createProcess(name="spikingProcess",
                                      includeDir=includeDir,
-                                     cFilePath = includeDir + "/spiking.c",
+                                     cFilePath = includeDir + "/spiking-snip.c",
                                      funcName = "run_spiking",
                                      guardName = "do_spiking",
                                      phase = "spiking")
@@ -126,9 +112,10 @@ if __name__ == '__main__':
     recvSpikeChannel = board.createChannel(b'nxRecvChannel', "int", 1)
     recvSpikeChannel.connect(spikeProcess, None)
 
-    
-    net.run(30)
-    net.disconnect()
+    #TODO: aSync - False means blocking
+    board.run(30, aSync = False)
+
+
 
     # -------------------------------------------------------------------------
     # Plot
