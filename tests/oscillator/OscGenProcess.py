@@ -20,10 +20,10 @@ Usage:
 import numpy as np
 import time
 import csv
-import multiprocessing
-import matplotlib.pyplot as plt
+import threading
+import queue
 
-class OscGenProcess:
+class oscillator:
     """
     A class used to generate a sinusoidal waveform with the capability to track and record spikes based on amplitude conditions.
 
@@ -38,7 +38,7 @@ class OscGenProcess:
         stop_event (multiprocessing.Event): An event to signal the process to stop.
     """
 
-    def __init__(self, amplitude, frequency, phase_shift, duration=None):
+    def __init__(self, amplitude, frequency, phase_shift, duration=None, spike_queue=None):
         """
         Initializes the OscGenProcess with specified waveform parameters and setup for multiprocessing.
 
@@ -54,17 +54,22 @@ class OscGenProcess:
         self.duration = duration
         self.omega = 2 * np.pi * self.frequency
         self.maxDT = 5e-3 #[sec] this equates to a max frequency of 200Hz
+        self.spike_queue = spike_queue
+        self.stop_event = threading.Event()
+        """
         manager = multiprocessing.Manager()
         self.times = manager.list()
         self.outputs = manager.list()
         self.spikes = manager.list()
         self.stop_event = manager.Event()
+        """
 
     def generate_sine_wave(self):
         """
         Generates a sine wave based on initialized parameters, recording output and spikes.
         Runs in a separate process and continues until stopped or duration is reached.
-        """
+        """self.process = multiprocessing.Process(target=self.generate_sine_wave)
+        self.process.start()
         start_time = time.perf_counter()
         t_last_spike = 0
 
@@ -82,25 +87,28 @@ class OscGenProcess:
                 if(current_time - t_last_spike > dt_now):
                     was_spike_sent = 1
                     t_last_spike = current_time
-
+                    if(self.spike_queue):
+                        neuron_id = 0 if f_now > 0 else 1
+                        self.spike_queue.put(neuron_id) # Send neuron ID to loihi network
+            
             #Data output for shared file
-            self.times.append(current_time * 1000)  # Convert time to milliseconds
-            self.outputs.append(f_now)
-            self.spikes.append(was_spike_sent)
+            # self.times.append(current_time * 1000)  # Convert time to milliseconds
+            # self.outputs.append(f_now)
+            # self.spikes.append(was_spike_sent)
 
     def run(self):
         """
-        Starts the waveform generation in a separate process.
+        Starts the waveform generation in a separate thread.
         """
-        self.process = multiprocessing.Process(target=self.generate_sine_wave)
-        self.process.start()
+        self.thread = thread.Thread(target = self.generate_sine_wave)
+        self.thread.start()
 
     def stop(self):
         """
         Signals the waveform generation process to stop and waits for it to finish.
         """
         self.stop_event.set()
-        self.process.join()
+        self.thread.join()
 
     def save_results_to_csv(self, filename):
         """
@@ -119,11 +127,3 @@ class OscGenProcess:
             for time, output, spike in zip(self.times, self.outputs, self.spikes):
                 writer.writerow([time, output, spike])
         print(f"Data successfully saved to {filename}.")
-
-if __name__ == '__main__':
-    oscillator = OscGenProcess(amplitude=200, frequency=1, phase_shift=0)
-    oscillator.run()  # Start generating in a separate process
-    time.sleep(2)  # Let it run for 2 seconds
-    oscillator.stop()  # Stop the generation
-    oscillator.save_results_to_csv('OscGenProcess.csv')
-    print("Finished generating the sine wave and saving to CSV.")

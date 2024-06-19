@@ -6,13 +6,27 @@ Version: 1.0.0
 Code adapted from "tutorial_24_control_loop_using_rospy.py" in the NxSDK tutorials package
 k_interactive_spike_sender_receiver.ipynb in the NxSDK tutorials package
 
+Notes: 
+    This program uses the threading library which emulates a multi-threaded program,
+    but a more appropriate library might be the multiprocessing library which is best for 
+    CPU bound tasks because it sidesteps the Global Interpreter Lock (GIL) by using seperate
+    memory spaces. In essance it allows for the creation of fully isolated processes. 
+
+    threading library is very suitable for I/O bound tasks
+
 """
 import time
 import os
+import threading
+import queue
+import matplotlib.pyplot as plt
 from nxsdk.graph.channel import Channel
 import nxsdk.api.n2a as nx
 from nxsdk.arch.n2a.n2board import N2Board
 from nxsdk.graph.processes.phase_enums import Phase
+from pinpong.board import Board, Pin
+from OscGenProcess import oscillator
+
 '''import matplotlib.pyplot as plt
 import matplotlib as mpl
 
@@ -22,9 +36,13 @@ if not haveDisply:
 
 '''
 NUM_PLOTS_PER_RECEIVER = 1
+NUM_TIME_STEPS = 3000
+
+
+"""Used for callback method of spike receiver"""
 class Callable:
     def __init__(self, index):
-        # data will hold the spike activity for the 3 compartments associated with a spikereceiver
+        # data will hold the spike activity for the compartments associated with a spikereceiver
         # Each spikereceiver will have its own Callable instance as the callback. This is denoted by index
         self.data = [[] for i in range(NUM_PLOTS_PER_RECEIVER)]
         self.index = index
@@ -32,17 +50,34 @@ class Callable:
     def __call__(self, *args, **kwargs):
         # At every invocation of this method, new data since the last invocation will be passed along.
         # args[0] essentially is a list[list]. Length of the parent list is the number of compartments 
-        # connecting to this spike receiver while each sublist is the timeseries data assciated with that
+        # connecting to this spike receiver while each sublist is the timeseries data associated with that
         # compartment accrued since the last invocation. len(args) is 1.
         for compartmentId, tsData in enumerate(args[0]):
             self.data[compartmentId].extend(tsData)
-        
-callable1 = Callable(1)
-callable2 = Callable(2)
 
-# Register these callable objects as callbacks
-spikeReceiver1.callback(callable1)
-spikeReceiver2.callback(callable2)
+# Plotter of the time-series spike receiver data
+def plot_spike_data(callable1, callable2):
+    fig, axes = plt.subplots(1, 2, figsize=(12,6))
+
+    for i in range(NUM_PLOTS_PER_RECEIVER):
+        times = callable1.data[i]
+        values = [1] * len(times)
+        axes[0].vlines(times, 0, values, color='blue')
+        axes[0].set_title('Spike Receiver 1')
+        axes[0].set_ylim(0,2)
+        axes[0].set_xlim(0,3000)
+
+    for i in range(NUM_PLOTS_PER_RECEIVER):
+        times = callable2.data[i]
+        values = [1] * len(times)
+        axes[1].vlines(times, 0, values, color ='red')
+        axes[1].set_title('Spike Receiver 2')
+        axes[1].set_ylim(0,2)
+        axes[1].set_xlim(0,3000)
+
+    plt.tight_layout()
+    plt.show()
+
 
 def setupNetwork():
 
@@ -69,42 +104,15 @@ def setupNetwork():
                                          compartmentCurrentDecay=410)
 
     neuron1 = net.createCompartment(prototype1)
-
-    
-    neuron2 = net.createCompartment(prototype1)
-
+    # will hold the spike activity for the 3 compartments
    #TODO: get compartment nodeId and Group.id 
    #nodeId is the compartment index
    # You can use kewords nxCompartment and nxCompartmentGroup in the C API
    #Compartment and compartment groups are indexed in the order they are created starting at 0
-
     print("Compartment 1 index is ", neuron1.nodeId)
     print("Compartment 2 index is ", neuron2.nodeId)
 
-    #Connection prototype
-    spikeConnProto = nx.ConnectionPrototype(weight = 128)
-
-    #Spike generator process for neuron1
-    interactiveSpikeGen1 = net.createInteractiveSpikeGenProcess(numPorts=1)
-    interactiveSpikeGen1_connection = interactiveSpikeGen1.connect(neuron1, spikeConnProto)
-    #Spike receiver process for neuron1
-    spikeReceiver1 = nx.SpikeReceiver(net)
-    neuron1.connect(spikeReceiver1)
-
-    #Spike generator process for neuron2
-    interactiveSpikeGen2 = net.createInteractiveSpikeGenProcess(numPorts=1)
-    interactiveSpikeGen2_connection = interactiveSpikeGen2.connect(neuron2, spikeConnProto)
-    #Spike receiver process for neuron2
-    spikeReceiver2 = nx.SpikeReceiver(net)
-    neuron2.connect(spikeReceiver2)
-
-
-    callable1 = Callable(1)
-    callable2 = Callable(2)
-
-    # Register these callable objects as callbacks
-    spikeReceiver1.callback(callable1)
-    spikeReceiver2.callback(callable2)
+    
 
     #Compile defined network
     compiler = nx.N2Compiler()
@@ -120,6 +128,9 @@ def create_SpikeGenProcess(net, num_spike_generators):
     # Create a spike generator process
     for i in range(num_spike_generators):
         runtime_spike_generators[i] = net.createInteractive
+
+def init_osc_process_thread(): 
+    
 
 
 if __name__ == '__main__':
@@ -166,10 +177,79 @@ if __name__ == '__main__':
                                            numElements = 1000)
     recvSpikeChannel.connect(spikeProcess, None)
 
+    """ Interactive Spike Generator and Receiver Processes"""
+    #Connection prototype
+    spikeConnProto = nx.ConnectionPrototype(weight = 128)
+
+    #Spike generator process for neuron1
+    interactiveSpikeGen1 = net.createInteractiveSpikeGenProcess(numPorts=1)
+    interactiveSpikeGen1_connection = interactiveSpikeGen1.connect(neuron1, spikeConnProto)
+    #Spike receiver process for neuron1
+    spikeReceiver1 = nx.SpikeReceiver(net)
+    neuron1.connect(spikeReceiver1)
+
+    #Spike generator process for neuron2
+    interactiveSpikeGen2 = net.createInteractiveSpikeGenProcess(numPorts=1)
+    interactiveSpikeGen2_connection = interactiveSpikeGen2.connect(neuron2, spikeConnProto)
+    #Spike receiver process for neuron2
+    spikeReceiver2 = nx.SpikeReceiver(net)
+    neuron2.connect(spikeReceiver2)
+
+
+    callable1 = Callable(1)
+    callable2 = Callable(2)
+
+    # Register these callable objects as callbacks
+    spikeReceiver1.callback(callable1)
+    spikeReceiver2.callback(callable2)
+
+    """
+        The next section is the spiking process to be send in realtime, 
+        although realtime is not guaranteed as the superhost and the loihi
+        are executing asynchronously without any common notion of timestep
+
+        IMPORTANT: Lakemont checks every 10 ms (maxF = 100 Hz) for spikes from 
+        the interactive spike generator. Is this frequence high enough? Probably not! 
+    """
+    spike_queue = queue.Queue()
+    oscillator = OscGenProcess(amplitude = 200, 
+                               frequency = 1, 
+                               phase_shift=0, 
+                               spike_queue = spike_queue)
+    
+    oscillator.run() # Starts generating sinewave in a separate thread
+
 
     board.start()
 
-    board.run(100, aSync = True)
+    board.run(NUM_TIME_STEPS, aSync = True)
+
+
+    timeout_period = 2 #[s]
+    start_timer = time.time()
+    try: 
+        #listen for spikes
+        while True: 
+            if not spike_queue.empty(): 
+                start_timer = time.time()
+                neuron_id = spike_queue.get()
+                match neuron_id:
+                    case 0:
+                        interactiveSpikeGen1.sendSpikes(spikeInputPortNodeIds=[1], numSpikes = [1])
+                    case 1:
+                        interactiveSpikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes = [1])
+
+            if time.perf_counter() - start_timer > timeout_period: 
+                break
+
+    except KeyboardInterrupt:
+        pass
+
+    finally: 
+        oscillator.stop()
+        print("Finished run successfully.")
+        board.finishRun()
+        board.disconnect()
 
     """
         The read() method is part of the channel API, see Communicating vis Channels section of NxSDK documentation
@@ -182,7 +262,7 @@ if __name__ == '__main__':
         value = time_step[0]
     """
 
-    
+    """
     timeout = False
     timeout_period = 2 # 5 [s]
 
@@ -199,11 +279,7 @@ if __name__ == '__main__':
             current_time = time.time()
             if current_time - start_timer >= timeout_period:
                 timeout = True
-
-    
-    board.finishRun()
-    board.disconnect()
-
+    """
 
     # -------------------------------------------------------------------------
     # TODO: Plot probe data to implement later
