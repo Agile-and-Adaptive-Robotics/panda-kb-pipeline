@@ -75,10 +75,6 @@ def plot_spike_data(callable1, callable2):
         axes[1].set_ylim(0,2)
         axes[1].set_xlim(0,3000)
 
-    plt.tight_layout()
-    plt.show()
-
-
 def setupNetwork():
 
     # Create a network
@@ -104,6 +100,7 @@ def setupNetwork():
                                          compartmentCurrentDecay=410)
 
     neuron1 = net.createCompartment(prototype1)
+    neuron2 = net.createCompartment(prototype1)
     # will hold the spike activity for the 3 compartments
    #TODO: get compartment nodeId and Group.id 
    #nodeId is the compartment index
@@ -111,71 +108,6 @@ def setupNetwork():
    #Compartment and compartment groups are indexed in the order they are created starting at 0
     print("Compartment 1 index is ", neuron1.nodeId)
     print("Compartment 2 index is ", neuron2.nodeId)
-
-    
-
-    #Compile defined network
-    compiler = nx.N2Compiler()
-    #receive board object required by SNIPs
-    board = compiler.compile(net)
-
-
-    # Return the configured probes
-    return board, net
-
-def create_SpikeGenProcess(net, num_spike_generators):
-    runtime_spike_generators = []
-    # Create a spike generator process
-    for i in range(num_spike_generators):
-        runtime_spike_generators[i] = net.createInteractive
-
-def init_osc_process_thread(): 
-    
-
-
-if __name__ == '__main__':
-
-    #Configure network
-    board, net = setupNetwork()
-
-    # Define directory where SNIP C-code is located
-    includeDir = os.path.dirname(os.path.realpath(__file__))
-    cFilePath = os.path.join(includeDir, "spiking-snip.c")
-    funcName = "run_spiking"
-    guardName = "do_spiking"
-
-    
-    # Create SNIP, define which code to execute and in which phase of the NxRuntime execution cycle
-    # Phase.EMBEDDED_MGMT - Execute SNIP on embedded management core. Enums are defined in nxsdk.graph.processes.phase
-    # The API directory file for phase enums is nxsdk/graph/processes/phase_enums.py
-    spikeProcess = board.createSnip(phase = Phase.EMBEDDED_SPIKING,
-                                     includeDir=includeDir,
-                                     cFilePath = cFilePath,
-                                     funcName = funcName,
-                                     guardName = guardName)
-    
-
-
-    #Create send channel SuperHost(computer) --> SnipProcess(Loihi LMT x86 Chip)
-    """
-        createChannel API creates a channel object that can be used to send and receive data between SuperHost (computer) and Host
-        See NxNet API and Programming SNIPs section in the user guide for more information
-        @Params: 
-        - name: Name of the channel
-        - messageSize: Size of the message in bytes, MUST BE A MULTIPLE OF 4
-        - numElements: Number of elements the channel can hold
-    """
-    sendSpikeChannel = board.createChannel(name = b'nxSendChannel', 
-                                           messageSize = 4, 
-                                           numElements = 1)
-     #Create send channel SuperHost(computer) --> SnipProcess(Loihi LMT x86 Chip)
-    sendSpikeChannel.connect(None, spikeProcess)
-    
-    """ Create Receive channel"""
-    recvSpikeChannel = board.createChannel(name = b'nxRecvChannel', 
-                                           messageSize = 4, 
-                                           numElements = 1000)
-    recvSpikeChannel.connect(spikeProcess, None)
 
     """ Interactive Spike Generator and Receiver Processes"""
     #Connection prototype
@@ -203,6 +135,72 @@ if __name__ == '__main__':
     spikeReceiver1.callback(callable1)
     spikeReceiver2.callback(callable2)
 
+
+    
+
+    #Compile defined network
+    compiler = nx.N2Compiler()
+    #receive board object required by SNIPs
+    board = compiler.compile(net)
+
+
+    # Return the configured probes
+    return board, net, neuron1, neuron2, callable1, callable2, interactiveSpikeGen1, interactiveSpikeGen2
+
+def create_SpikeGenProcess(net, num_spike_generators):
+    runtime_spike_generators = []
+    # Create a spike generator process
+    for i in range(num_spike_generators):
+        runtime_spike_generators[i] = net.createInteractive
+
+
+if __name__ == '__main__':
+
+    #Configure network
+    board, net, neuron1, neuron2, callable1, callable2, interactiveSpikeGen1, interactiveSpikeGen2 = setupNetwork()
+
+    # Define directory where SNIP C-code is located
+    # includeDir = os.path.dirname(os.path.realpath(__file__))
+    # cFilePath = os.path.join(includeDir, "spiking-snip.c")
+    # funcName = "run_spiking"
+    # guardName = "do_spiking"
+
+    
+    # Create SNIP, define which code to execute and in which phase of the NxRuntime execution cycle
+    # Phase.EMBEDDED_MGMT - Execute SNIP on embedded management core. Enums are defined in nxsdk.graph.processes.phase
+    # The API directory file for phase enums is nxsdk/graph/processes/phase_enums.py
+    """
+    pikeProcess = board.createSnip(phase = Phase.EMBEDDED_SPIKING,
+                                     includeDir=includeDir,
+                                     cFilePath = cFilePath,
+                                     funcName = funcName,
+                                     guardName = guardName)
+    """
+
+
+    #Create send channel SuperHost(computer) --> SnipProcess(Loihi LMT x86 Chip)
+    """
+        createChannel API creates a channel object that can be used to send and receive data between SuperHost (computer) and Host
+        See NxNet API and Programming SNIPs section in the user guide for more information
+        @Params: 
+        - name: Name of the channel
+        - messageSize: Size of the message in bytes, MUST BE A MULTIPLE OF 4
+        - numElements: Number of elements the channel can hold
+    
+
+    sendSpikeChannel = board.createChannel(name = b'nxSendChannel', 
+                                           messageSize = 4, 
+                                           numElements = 1)
+     #Create send channel SuperHost(computer) --> SnipProcess(Loihi LMT x86 Chip)
+    sendSpikeChannel.connect(None, spikeProcess)
+    
+        #Create Receive channel
+    recvSpikeChannel = board.createChannel(name = b'nxRecvChannel', 
+                                           messageSize = 4, 
+                                             numElements = 1)
+    """
+
+
     """
         The next section is the spiking process to be send in realtime, 
         although realtime is not guaranteed as the superhost and the loihi
@@ -212,15 +210,26 @@ if __name__ == '__main__':
         the interactive spike generator. Is this frequence high enough? Probably not! 
     """
     spike_queue = queue.Queue()
-    oscillator = OscGenProcess(amplitude = 200, 
-                               frequency = 1, 
-                               phase_shift=0, 
-                               spike_queue = spike_queue)
+    oscillator = oscillator(amplitude = 200, 
+                            frequency = 1, 
+                            phase_shift=0, 
+                            spike_queue = spike_queue)
     
     oscillator.run() # Starts generating sinewave in a separate thread
 
-
+    
     board.start()
+
+    inputPortNodeIds = interactiveSpikeGen1.getSpikeInputToResourceMapping()
+    print("Input port node ids for spikeGen1: ", inputPortNodeIds)
+    inputPortNodeIds = interactiveSpikeGen2.getSpikeInputToResourceMapping()
+    print("Input port node ids for spikeGen2: ", inputPortNodeIds)
+    
+
+    interactiveSpikeGen1.sendSpikes(spikeInputPortNodeIds=[0], numSpikes=[1])
+    print("Spikes sent to neuron1")
+    interactiveSpikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[1])
+    print("Spikes sent to neuron2")
 
     board.run(NUM_TIME_STEPS, aSync = True)
 
@@ -230,17 +239,22 @@ if __name__ == '__main__':
     try: 
         #listen for spikes
         while True: 
+            print("I'm here 1")
             if not spike_queue.empty(): 
+                print("I'm here 2")
                 start_timer = time.time()
                 neuron_id = spike_queue.get()
-                match neuron_id:
-                    case 0:
-                        interactiveSpikeGen1.sendSpikes(spikeInputPortNodeIds=[1], numSpikes = [1])
-                    case 1:
-                        interactiveSpikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes = [1])
+                if neuron_id == 0:
+                    print("I'm here 3")
+                    interactiveSpikeGen1.sendSpikes(spikeInputPortNodeIds=[0], numSpikes=[1])
+                elif neuron_id == 1:
+                    print("I'm here 4")
+                    interactiveSpikeGen2.sendSpikes(spikeInputPortNodeIds=[0], numSpikes=[1])
 
             if time.perf_counter() - start_timer > timeout_period: 
+                print("Timeout occured")
                 break
+            time.sleep(0.005)
 
     except KeyboardInterrupt:
         pass
@@ -250,6 +264,11 @@ if __name__ == '__main__':
         print("Finished run successfully.")
         board.finishRun()
         board.disconnect()
+
+    # -------------------------------------------------------------------------
+    # Finished Run
+    # -------------------------------------------------------------------------
+
 
     """
         The read() method is part of the channel API, see Communicating vis Channels section of NxSDK documentation
@@ -281,8 +300,6 @@ if __name__ == '__main__':
                 timeout = True
     """
 
-    # -------------------------------------------------------------------------
-    # TODO: Plot probe data to implement later
-    # -------------------------------------------------------------------------
+
     
 

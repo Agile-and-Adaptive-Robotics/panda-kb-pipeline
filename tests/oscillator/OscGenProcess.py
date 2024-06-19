@@ -68,8 +68,7 @@ class oscillator:
         """
         Generates a sine wave based on initialized parameters, recording output and spikes.
         Runs in a separate process and continues until stopped or duration is reached.
-        """self.process = multiprocessing.Process(target=self.generate_sine_wave)
-        self.process.start()
+        """
         start_time = time.perf_counter()
         t_last_spike = 0
 
@@ -100,7 +99,7 @@ class oscillator:
         """
         Starts the waveform generation in a separate thread.
         """
-        self.thread = thread.Thread(target = self.generate_sine_wave)
+        self.thread = threading.Thread(target = self.generate_sine_wave)
         self.thread.start()
 
     def stop(self):
