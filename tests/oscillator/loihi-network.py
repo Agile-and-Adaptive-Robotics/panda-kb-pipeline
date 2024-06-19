@@ -249,7 +249,7 @@ if __name__ == '__main__':
                     interactiveSpikeGen1.sendSpikes(spikeInputPortNodeIds=[0], numSpikes=[1])
                 elif neuron_id == 1:
                     print("I'm here 4")
-                    interactiveSpikeGen2.sendSpikes(spikeInputPortNodeIds=[0], numSpikes=[1])
+                    interactiveSpikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[1])
 
             if time.perf_counter() - start_timer > timeout_period: 
                 print("Timeout occured")
@@ -261,9 +261,9 @@ if __name__ == '__main__':
 
     finally: 
         oscillator.stop()
-        print("Finished run successfully.")
-        board.finishRun()
+        # board.finishRun()
         board.disconnect()
+        print("Finished run successfully.")
 
     # -------------------------------------------------------------------------
     # Finished Run
