@@ -56,7 +56,7 @@ class Callable:
             self.data[compartmentId].extend(tsData)
 
 # Plotter of the time-series spike receiver data
-def plot_spike_data(callable1, callable2):
+def plot_spike_data(callable1, callable2, filename='SpikeData.png'):
     fig, axes = plt.subplots(1, 2, figsize=(12,6))
 
     for i in range(NUM_PLOTS_PER_RECEIVER):
@@ -74,6 +74,10 @@ def plot_spike_data(callable1, callable2):
         axes[1].set_title('Spike Receiver 2')
         axes[1].set_ylim(0,2)
         axes[1].set_xlim(0,3000)
+
+    plt.tight_layout()
+    plt.savefig(filename)
+    plt.close(fig)
 
 def setupNetwork():
 
@@ -160,22 +164,22 @@ if __name__ == '__main__':
     board, net, neuron1, neuron2, callable1, callable2, interactiveSpikeGen1, interactiveSpikeGen2 = setupNetwork()
 
     # Define directory where SNIP C-code is located
-    # includeDir = os.path.dirname(os.path.realpath(__file__))
-    # cFilePath = os.path.join(includeDir, "spiking-snip.c")
-    # funcName = "run_spiking"
-    # guardName = "do_spiking"
+    includeDir = os.path.dirname(os.path.realpath(__file__))
+    cFilePath = os.path.join(includeDir, "runmgmt.c")
+    funcName = "run_mgmt"
+    guardName = "do_run_mgmt"
 
     
     # Create SNIP, define which code to execute and in which phase of the NxRuntime execution cycle
     # Phase.EMBEDDED_MGMT - Execute SNIP on embedded management core. Enums are defined in nxsdk.graph.processes.phase
     # The API directory file for phase enums is nxsdk/graph/processes/phase_enums.py
-    """
-    pikeProcess = board.createSnip(phase = Phase.EMBEDDED_SPIKING,
+    
+    managementProcess = board.createSnip(phase = Phase.EMBEDDED_MGMT,
                                      includeDir=includeDir,
                                      cFilePath = cFilePath,
                                      funcName = funcName,
                                      guardName = guardName)
-    """
+    
 
 
     #Create send channel SuperHost(computer) --> SnipProcess(Loihi LMT x86 Chip)
@@ -186,20 +190,22 @@ if __name__ == '__main__':
         - name: Name of the channel
         - messageSize: Size of the message in bytes, MUST BE A MULTIPLE OF 4
         - numElements: Number of elements the channel can hold
-    
-
+    """
+    """
     sendSpikeChannel = board.createChannel(name = b'nxSendChannel', 
                                            messageSize = 4, 
                                            numElements = 1)
+    
      #Create send channel SuperHost(computer) --> SnipProcess(Loihi LMT x86 Chip)
     sendSpikeChannel.connect(None, spikeProcess)
-    
-        #Create Receive channel
-    recvSpikeChannel = board.createChannel(name = b'nxRecvChannel', 
-                                           messageSize = 4, 
-                                             numElements = 1)
     """
-
+        #Create Receive channel
+    recvMgmtChannel= board.createChannel(name = b'nxRecvChannel', 
+                                         messageSize = 4, 
+                                         numElements = 1)
+    
+    #Connect the receive channel to the management process: Loihi ---> SuperHost
+    recvMgmtChannel.connect(managementProcess, None)
 
     """
         The next section is the spiking process to be send in realtime, 
@@ -219,7 +225,7 @@ if __name__ == '__main__':
 
     
     board.start()
-
+    """
     inputPortNodeIds = interactiveSpikeGen1.getSpikeInputToResourceMapping()
     print("Input port node ids for spikeGen1: ", inputPortNodeIds)
     inputPortNodeIds = interactiveSpikeGen2.getSpikeInputToResourceMapping()
@@ -230,30 +236,30 @@ if __name__ == '__main__':
     print("Spikes sent to neuron1")
     interactiveSpikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[1])
     print("Spikes sent to neuron2")
-
+    """
     board.run(NUM_TIME_STEPS, aSync = True)
 
-
-    timeout_period = 2 #[s]
-    start_timer = time.time()
+    # is_complete = False
     try: 
         #listen for spikes
-        while True: 
-            print("I'm here 1")
+        while True:
             if not spike_queue.empty(): 
-                print("I'm here 2")
-                start_timer = time.time()
+                if(recvMgmtChannel.probe()):
+                    timeStep = recvMgmtChannel.read(1)[0]
+                    if(timeStep == NUM_TIME_STEPS):
+                        is_complete = True
+                        print("Execution complete")
+                        break
+
+                #print("I'm here 2")
                 neuron_id = spike_queue.get()
                 if neuron_id == 0:
-                    print("I'm here 3")
+                    #print("I'm here 3")
                     interactiveSpikeGen1.sendSpikes(spikeInputPortNodeIds=[0], numSpikes=[1])
                 elif neuron_id == 1:
-                    print("I'm here 4")
+                    #print("I'm here 4")
                     interactiveSpikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[1])
-
-            if time.perf_counter() - start_timer > timeout_period: 
-                print("Timeout occured")
-                break
+            
             time.sleep(0.005)
 
     except KeyboardInterrupt:
@@ -264,6 +270,8 @@ if __name__ == '__main__':
         # board.finishRun()
         board.disconnect()
         print("Finished run successfully.")
+
+        plot_spike_data(callable1, callable2, filename='SpikeData.png')
 
     # -------------------------------------------------------------------------
     # Finished Run
