@@ -8,7 +8,7 @@
     Run management functions for exiting the simulation after a certain number of steps
 */
 
-#define NUMSTEPS 3000
+#define NUMSTEPS 500
 
 int spikeCountCx = 0;
 int channelID = -1;
@@ -27,11 +27,11 @@ int do_run_mgmt(runState *s) {
         if(s->time_step == NUMSTEPS){
             return 1;
         }
-    printf("Time step: %d\n", s->time_step);
     return 0;    
 }
 
 void run_mgmt(runState *s) {
     int time = s->time_step;
+    printf("Time: %d\n", time);
     writeChannel(channelID, &time, 1);
 }

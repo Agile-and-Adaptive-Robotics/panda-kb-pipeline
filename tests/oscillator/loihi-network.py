@@ -20,12 +20,19 @@ import os
 import threading
 import queue
 import matplotlib.pyplot as plt
+from nxsdk.utils.plotutils import plotRaster
 from nxsdk.graph.channel import Channel
 import nxsdk.api.n2a as nx
 from nxsdk.arch.n2a.n2board import N2Board
 from nxsdk.graph.processes.phase_enums import Phase
 from pinpong.board import Board, Pin
 from OscGenProcess import oscillator
+import matplotlib as mpl
+
+
+haveDisplay = "DISPLAY" in os.environ
+if not haveDisplay:
+    mpl.use('Agg')
 
 '''import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -36,7 +43,25 @@ if not haveDisply:
 
 '''
 NUM_PLOTS_PER_RECEIVER = 1
-NUM_TIME_STEPS = 3000
+NUM_TIME_STEPS = 500
+
+"""FIXME: This function is not used"""
+def create_probes(neuron1, neuron2):
+    # Define probe conditions
+    vPc = nx.IntervalProbeCondition(dt=1, tStart=1)
+    sPc = nx.SpikeProbeCondition(dt=1, tStart=1)
+
+    # Create probes for the neurons
+    vProbe1 = neuron1.probe(nx.ProbeParameter.COMPARTMENT_VOLTAGE, probeConditions=vPc)
+    vProbe2 = neuron2.probe(nx.ProbeParameter.COMPARTMENT_VOLTAGE, probeConditions=vPc)
+    sProbe1 = neuron1.probe(nx.ProbeParameter.SPIKE, probeConditions=sPc)
+    sProbe2 = neuron2.probe(nx.ProbeParameter.SPIKE, probeConditions=sPc)
+
+    # Pack probes into a list
+    probes = [vProbe1, vProbe2, sProbe1, sProbe2]
+
+    # Return the list of probes
+    return probes
 
 
 """Used for callback method of spike receiver"""
@@ -45,6 +70,7 @@ class Callable:
         # data will hold the spike activity for the compartments associated with a spikereceiver
         # Each spikereceiver will have its own Callable instance as the callback. This is denoted by index
         self.data = [[] for i in range(NUM_PLOTS_PER_RECEIVER)]
+        print(f"Data from callback spike receiver: {self.data}")
         self.index = index
 
     def __call__(self, *args, **kwargs):
@@ -54,6 +80,7 @@ class Callable:
         # compartment accrued since the last invocation. len(args) is 1.
         for compartmentId, tsData in enumerate(args[0]):
             self.data[compartmentId].extend(tsData)
+            print(f"Compartment {compartmentId} of spike receiver {self.index} received spikes at time steps: {tsData}")
 
 # Plotter of the time-series spike receiver data
 def plot_spike_data(callable1, callable2, filename='SpikeData.png'):
@@ -79,6 +106,53 @@ def plot_spike_data(callable1, callable2, filename='SpikeData.png'):
     plt.savefig(filename)
     plt.close(fig)
 
+def plot_probes(probes):
+    # Retrieve data from probes
+    probes1 = probes[0]
+    probes2 = probes[1]
+
+    fig = plt.figure(1001)
+
+    plt.subplot(1, 2, 1)
+    v1Probe = probes1[0]
+    v1Probe.plot()
+    plt.title('Compartment 1 Voltage')
+
+    if haveDisplay:
+        plt.show()
+    else: 
+        print("No display available, save figure to file")
+        plt.savefig('Compartment1Voltage.png')
+        plt.close(fig)
+
+    print("Voltage data for compartment 1: ", vData1)
+
+    """
+    # Plot Data
+    plt.figure(1, figsize=(18, 20))
+    ax0 = plt.subplot(2, 1, 1)
+    #Compartment one Voltage
+    vData1[0].plot()
+    plt.title('Compartment 1 Voltage')
+    # Plot Spike Train
+    ax1 = plt.subplot(2, 1, 2)
+    sData1[0].plot()
+    ax1.set_xlim(ax0.get_xlim())
+    plt.title('Compartment 1 Spike Train')
+    #Compartment two Voltage
+    ax2 = plt.subplot(2, 1, 1)
+    vData2[0].plot()
+    plt.title('Compartment 2 Voltage')
+    # Plot Spike Train
+    ax3 = plt.subplot(2, 1, 2)
+    sData2[0].plot()
+    ax3.set_xlim(ax2.get_xlim())
+    plt.title('Compartment 2 Spike Train')
+
+    plt.xlabel('Time')
+    plt.show()
+    """
+
 def setupNetwork():
 
     # Create a network
@@ -96,15 +170,27 @@ def setupNetwork():
     #   implementation) {1/16 * 2^12=256}
     # compartmentCurrentDecay: Set to 1/10 (2^12 factor for fixed point
     #   implementation) {1/10 * 2^12=409}
-    prototype1 = nx.CompartmentPrototype(biasMant=1,
+    prototype1 = nx.CompartmentPrototype(biasMant=100,
                                          biasExp=6,
-                                         vThMant=10,
+                                         vThMant=1000,
                                          functionalState=2,
                                          compartmentVoltageDecay=256,
                                          compartmentCurrentDecay=410)
 
     neuron1 = net.createCompartment(prototype1)
     neuron2 = net.createCompartment(prototype1)
+
+
+    # Taken from a_compartment_setup.ipynb in the NxSDK tutorials package
+    probes1 = neuron1.probe([nx.ProbeParameter.COMPARTMENT_VOLTAGE, 
+                             nx.ProbeParameter.SPIKE], probeConditions=None)
+
+    probes2 = neuron2.probe([nx.ProbeParameter.COMPARTMENT_VOLTAGE, 
+                             nx.ProbeParameter.SPIKE], probeConditions=None)
+
+   
+    probes = [probes1, probes2]
+
     # will hold the spike activity for the 3 compartments
    #TODO: get compartment nodeId and Group.id 
    #nodeId is the compartment index
@@ -149,7 +235,7 @@ def setupNetwork():
 
 
     # Return the configured probes
-    return board, net, neuron1, neuron2, callable1, callable2, interactiveSpikeGen1, interactiveSpikeGen2
+    return board, net, neuron1, neuron2, callable1, callable2, interactiveSpikeGen1, interactiveSpikeGen2, probes
 
 def create_SpikeGenProcess(net, num_spike_generators):
     runtime_spike_generators = []
@@ -161,7 +247,7 @@ def create_SpikeGenProcess(net, num_spike_generators):
 if __name__ == '__main__':
 
     #Configure network
-    board, net, neuron1, neuron2, callable1, callable2, interactiveSpikeGen1, interactiveSpikeGen2 = setupNetwork()
+    board, net, neuron1, neuron2, callable1, callable2, interactiveSpikeGen1, interactiveSpikeGen2, probes = setupNetwork()
 
     # Define directory where SNIP C-code is located
     includeDir = os.path.dirname(os.path.realpath(__file__))
@@ -254,16 +340,18 @@ if __name__ == '__main__':
                 #print("I'm here 2")
                 neuron_id = spike_queue.get()
                 if neuron_id == 0:
-                    #print("I'm here 3")
+                    # print("Spiking neuron 1")
                     interactiveSpikeGen1.sendSpikes(spikeInputPortNodeIds=[0], numSpikes=[1])
                 elif neuron_id == 1:
-                    #print("I'm here 4")
+                    # print("Spiking neuron 2")
                     interactiveSpikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[1])
             
             time.sleep(0.005)
 
     except KeyboardInterrupt:
+        print("Keyboard interrupt detected. Stopping run.")
         pass
+    
 
     finally: 
         oscillator.stop()
@@ -271,7 +359,13 @@ if __name__ == '__main__':
         board.disconnect()
         print("Finished run successfully.")
 
-        plot_spike_data(callable1, callable2, filename='SpikeData.png')
+        #TODO: plot_spike_data(callable1, callable2, filename='SpikeData.png')
+
+
+    # -------------------------------------------------------------------------
+    # Plot Probe Data
+    # -------------------------------------------------------------------------
+    plot_probes(probes)
 
     # -------------------------------------------------------------------------
     # Finished Run
