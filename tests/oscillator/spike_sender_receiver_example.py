@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from threading import Thread, Event
 
 #Number of timesteps to run
-NUM_TIMESTEPS=3000
+NUM_TIMESTEPS=10
 
 # Number of plots for each spike receiver (corresponds to how many compartments are connected with the spike receiver)
 NUM_PLOTS_PER_RECEIVER=GROUP_SIZE=3
@@ -25,10 +25,12 @@ class Callable:
     def __call__(self, *args, **kwargs):
         # At every invocation of this method, new data since the last invocation will be passed along.
         # args[0] essentially is a list[list]. Length of the parent list is the number of compartments 
-        # connecting to this spike receiver while each sublist is the timeseries data assciated with that
+        # connecting to this spike receiver while each sublist is the timeseries data associated with that
         # compartment accrued since the last invocation. len(args) is 1.
         for compartmentId, tsData in enumerate(args[0]):
             self.data[compartmentId].extend(tsData)
+            print(f"Data {compartmentId}: {self.data[compartmentId]}, Index: {self.index}, Timestamp {tsData}")
+        print("Done")
 
 
 class AsyncPlotter:
@@ -93,12 +95,13 @@ def setupNetwork(net):
 def createBasicSpikeGen(net, cg1):
     basicSpikeGen = net.createSpikeGenProcess(numPorts=1)
 
-    connectionPrototype.weight = 128
+    connectionPrototype = nx.ConnectionPrototype(weight=128)
 
     basicSpikeGenConnGrp = basicSpikeGen.connect(cg1, prototype=connectionPrototype)
 
     # Inject spikes at these pre-determined timesteps
-    basicSpikeGen.addSpikes(0, [1,2,4,8,16,32,64,128,256,512,1024,2048])
+    basicSpikeGen.addSpikes(0, [1,2,4,8])
+    return connectionPrototype
 
 
 
@@ -109,7 +112,7 @@ if __name__ == '__main__':
 
     cg1, cg2 = setupNetwork(net)
 
-    createBasicSpikeGen(net, cg1)
+    connectionPrototype = createBasicSpikeGen(net, cg1)
 
     interactiveSpikeGen = net.createInteractiveSpikeGenProcess(numPorts=1)
 
@@ -127,17 +130,20 @@ if __name__ == '__main__':
     # Register these callable objects as callbacks
     spikeReceiver1.callback(callable1)
     spikeReceiver2.callback(callable2)
-
+    connectionPrototype.weight = 128
     #Instantiate AsyncPlotter and start the non-blocking plotter before running the network
-    ap = AsyncPlotter(NUM_PLOTS_PER_RECEIVER, [callable1, callable2], NUM_TIMESTEPS)
+    #ap = AsyncPlotter(NUM_PLOTS_PER_RECEIVER, [callable1, callable2], NUM_TIMESTEPS)
 
     # Run Asynchronously (Non-Blocking)
     net.runAsync(numSteps=NUM_TIMESTEPS)
 
     # Send Spikes
-    for i in range(50):
-        sleep(1)
-        interactiveSpikeGen.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[3])
+    """
+    for i in range(2):
+        sleep(0.5)
+        """
+    
+    interactiveSpikeGen.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[3])
     
     # net.stop()
     net.disconnect()
