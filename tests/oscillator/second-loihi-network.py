@@ -44,7 +44,7 @@ def plot_probes(vProbes, sProbes):
     # Must use board.finishRun() to make this true
     # Retrieve data from probes
 
-    fig = plt.figure(1001)
+    fig = plt.figure(figsize=(25,15))
 
     plt.subplot(2, 2, 1)
     vProbes[0].plot()
@@ -66,7 +66,7 @@ def plot_probes(vProbes, sProbes):
         plt.show()
     else: 
         print("No display available, save figure to file")
-        plt.savefig('Compartment1Voltage.png')
+        plt.savefig('SpikeData.png')
         plt.close(fig)
 
 
