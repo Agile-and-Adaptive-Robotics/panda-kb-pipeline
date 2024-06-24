@@ -46,11 +46,12 @@ $$
 $$
 
 ## Spike Receivers
-- The spikeReceiver() class requires a callback method, weirdly the callback method does not work unless you use `net.runAsync()`. Originally, I was defining the network then compiling it with the compiler tool to get the board object. I would then run the network with `board.run(Async = True)`. Not sure why this is other than that the spikeReceiver() class is part of the NxNet() API. 
+- The spikeReceiver() class requires a callback method, weirdly the callback method does not work unless you use `net.runAsync()`. Originally, I was defining the network then compiling it with the compiler tool to get the board object. I would then run the network with `board.run(Async = True)`-> Not sure why this wouldn't work other than that the spikeReceiver() class is part of the NxNet() API. 
 
 ## Creating SNIPs
 - `Note` do not use the `board.createProcess()` method, this has been deprecated. Use `board.createSnip()` instead, as this gave me less troubles. 
 - I realized during this project that you can use `net.createSnip()` or `board.createSnip()` , both work. 
+
 
 **Here's my current implementation of a SNIP (not implemented in this code but useful for later use)**
 ```python
@@ -117,7 +118,7 @@ void run_mgmt(runState *s) {
     writeChannel(channelID, &time, 1);
 }
 ```
-**You then can use the run-time management snip for knowing the current time-step, this was helpful in ensuring the sendSpikes method was hanging. It would generally hang if the board had finished a run but the superhost (computer) was unaware of the run finishing.**
+**You then can use the run-time management snip for knowing the current time-step, this was helpful in ensuring the sendSpikes method was NOT hanging. It would generally hang if the board had finished a run but the superhost (computer) was unaware of the run finishing.**
 ```python
 board.run(NUM_TIME_STEPS, aSync = True)
 
@@ -151,8 +152,43 @@ board.run(NUM_TIME_STEPS, aSync = True)
 
     finally: 
         oscillator.stop()
-        # board.finishRun()
+        board.finishRun()
         board.disconnect()
         print("Finished run successfully.")
 ```
 
+## Interactive Spike Senders
+- Spike senders use `spikeInputPortNodeIds` to identify where spikes are send, the index of these node ids are created in order starting at 0. See the example below: 
+```python
+if neuron_id == 0:
+    # print("Spiking neuron 1")
+    spikeGen1.sendSpikes(spikeInputPortNodeIds=[0], numSpikes=[1])
+elif neuron_id == 1:
+    # print("Spiking neuron 2")
+    spikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[1])
+
+```
+
+## Working with probes
+- `IMPORTANT` I found that if you are working at the board level that you must call the `board.finishRun()` for the probe data to be evaluated. Probe data is only evaluated and returned to the superhost after a run has finished. 
+- Below is an example implementation that was used during testing this application: 
+```python
+    neuron1 = net.createCompartment(prototype)
+    neuron2 = net.createCompartment(prototype)
+
+    probeParameters = [nx.ProbeParameter.COMPARTMENT_VOLTAGE, 
+                       nx.ProbeParameter.SPIKE]
+    probeConditions = None
+
+
+    probes1 = neuron1.probe(probeParameters, probeConditions)
+
+    probes2 = neuron2.probe(probeParameters, probeConditions)
+
+    vProbes = [probes1[0], probes2[0]]
+    sProbes = [probes1[1], probes2[1]]
+
+```
+
+## Python Threading vs. Multiprocessing Library
+- The threading library is best for I/O bound processes, while multiprocessing is best for CPU bound tasks because it sidesteps the GIL by using separate memory spaces for processes. 
