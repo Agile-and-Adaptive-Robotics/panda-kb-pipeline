@@ -3,8 +3,9 @@ Author: Reece Wayt
 
 Version: 1.0.1
 
-Code adapted from "tutorial_24_control_loop_using_rospy.py" in the NxSDK tutorials package
-k_interactive_spike_sender_receiver.ipynb in the NxSDK tutorials package
+Sources: 
+    - "tutorial_24_control_loop_using_rospy.py" in the NxSDK tutorials package
+    - spike_sender_receiver_example.py found in this folder & the NxSDK tutorials package
 
 Notes: 
     This program uses the threading library which emulates a multi-threaded program,

@@ -5,7 +5,7 @@ in a separate process, sends spikes based on current wave output frequency, and 
 resulting data to a CSV file. This module is designed for applications where real-time waveform 
 generation is needed to model oscillator neural stimulation. 
 
-The wave uses the below formulat to determine spike signal frequencies: 
+The wave uses the below formulate to determine spike signal frequencies: 
 dt_now = amplitude * sin(omega * t + phase shift)
 
 IF enough time has passed since last spike time, send another spike
@@ -25,8 +25,6 @@ import queue
 
 class oscillator:
     """
-    A class used to generate a sinusoidal waveform with the capability to track and record spikes based on amplitude conditions.
-
     Attributes:
         amplitude (float): The maximum amplitude of the sine wave.
         frequency (float): The frequency of the sine wave in Hz.
