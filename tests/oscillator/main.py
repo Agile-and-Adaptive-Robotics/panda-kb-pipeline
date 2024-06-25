@@ -30,6 +30,7 @@ from nxsdk.graph.processes.phase_enums import Phase
 from pinpong.board import Board, Pin
 from OscGenProcess import oscillator
 import matplotlib as mpl
+import psutil
 
 
 mpl.use('Agg')
@@ -46,6 +47,9 @@ class Callable:
         # Each spikereceiver will have its own Callable instance as the callback. This is denoted by index
         self.data = [[] for i in range(NUM_PLOTS_PER_RECEIVER)]
         self.index = index
+        """Performance Measures"""
+        self.total_latency = 0.0
+        self.request_count = 0
 
     def __call__(self, *args, **kwargs):
         # At every invocation of this method, new data since the last invocation will be passed along.
@@ -54,6 +58,7 @@ class Callable:
         # compartment accrued since the last invocation. len(args) is 1.
         global CURR_TIMESTEP, led2_output, led3_output
         #print(f"Data for neuron{self.index}: {args[0]}")
+        start_time = time.perf_counter()
         for compartmentId, tsData in enumerate(args[0]):
             self.data[compartmentId].extend(tsData)
             for spike in tsData:
@@ -64,11 +69,15 @@ class Callable:
                     elif self.index == 2:  
                         #print(f"Data to blink led3, {self.index}")
                         led3_output.send_spike('blink')
+                    #Increment per request of spike received
+                    self.request_count+= 1  
             #print(f"{compartmentId}: {self.data[compartmentId]}, Index: {self.index}, Timestamp {tsData}")
 
         #print(f"Done this time.... time-step: {len(self.data[compartmentId])}")
-        
         CURR_TIMESTEP = len(self.data[compartmentId])
+
+        end_time = time.perf_counter()
+        self.total_latency = self.total_latency + (end_time - start_time)
 
     def plot_data(self):
         fig, axes = plt.subplots(NUM_PLOTS_PER_RECEIVER, 1, figsize=(10, 5))
@@ -88,6 +97,9 @@ class Callable:
         plt.close(fig)
         print("Data has been plotted")
 
+    def get_average_latency(self):
+        return self.total_latency / self.request_count if self.request_count > 0 else 0
+
 
 class ledPinOutput:
     def __init__(self, pin_number):
@@ -103,7 +115,7 @@ class ledPinOutput:
         while not self.stop_event.is_set():
             try:
                 # Wait for a spike with a timeout to periodically check for stop event
-                spike = self.queue.get(timeout=0.01)
+                spike = self.queue.get(timeout=0.001)
                 if spike == 'blink':
                     self._blink_led()
             except queue.Empty:
@@ -112,9 +124,9 @@ class ledPinOutput:
     def _blink_led(self):
         #print(f"Blinking Pin: {self.pin_number}")
         self.led.write_digital(1)
-        time.sleep(0.01)     # Keep it on for 0.2 seconds
+        time.sleep(0.005)     # Keep it on for 0.2 seconds
         self.led.write_digital(0)
-        time.sleep(0.01)     # Keep it off for 0.2 seconds
+        time.sleep(0.005)     # Keep it off for 0.2 seconds
 
     def send_spike(self, spike):
         self.queue.put(spike)
@@ -180,9 +192,9 @@ if __name__ == '__main__':
     #receive board object required by SNIPs
     #board = compiler.compile(net)
     
-    """ Oscillator Process, see OscGenProcess.py for more details"""
+    """Oscillator Process, see OscGenProcess.py for more details"""
     spike_queue = queue.Queue()
-    oscillator = oscillator(amplitude = 100, 
+    oscillator = oscillator(amplitude = 200, 
                             frequency = 1, 
                             phase_shift=0, 
                             spike_queue = spike_queue)
@@ -193,8 +205,17 @@ if __name__ == '__main__':
     #board.start()
     #board.run(NUM_TIME_STEPS, aSync = True)
 
+    """Setup performance measures"""
+    total_spikes_sent = 0
+    total_spikes_received = 0
+    p = psutil.Process()
+    net_counters_start = psutil.net_io_counters()
+    p_start_time = time.perf_counter()
+
+    """Run Network"""
     net.runAsync(numSteps=NUM_TIME_STEPS)
     
+
     try: 
         #listen for spikes
         while CURR_TIMESTEP < NUM_TIME_STEPS:
@@ -209,7 +230,8 @@ if __name__ == '__main__':
                     # print("Spiking neuron 2")
                     spikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[1])
             
-            #time.sleep(0.001)
+            #TODO: fix this tomorrow
+            total_spikes_sent += 1
             
 
     except KeyboardInterrupt:
@@ -218,6 +240,8 @@ if __name__ == '__main__':
     
 
     finally: 
+        p_stop_time = time.perf_counter()
+        net_counters_stop = psutil.net_io_counters()
         oscillator.stop()
         #board.finishRun()
         #board.disconnect()
@@ -231,7 +255,27 @@ if __name__ == '__main__':
         #Plot spike receiver data from runtime
         callable1.plot_data()
         callable2.plot_data()
-        
+
+
+    """Performance Evaluation"""
+    total_spikes_received = callable1.request_count + callable2.request_count
+    total_elapsed_time = p_stop_time - p_start_time
+
+    #I/O Counters Data
+    print(p.io_counters())
+    print(f"Net counters start: {net_counters_start}")
+    print(f"Net counters stop: {net_counters_stop}")
+    print(f"Total Bytes Sent: {net_counters_stop.bytes_sent - net_counters_start.bytes_sent}")
+    print(f"Total Bytes Received: {net_counters_stop.bytes_recv - net_counters_start.bytes_recv}")
+
+    average_latency = (callable1.get_average_latency() + callable2.get_average_latency()) / 2
+    throughput = ((total_spikes_received + total_spikes_sent)/ total_elapsed_time)
+
+    print(f"Total Spikes Sent: {total_spikes_sent}")
+    print(f"Total Spikes Received: {total_spikes_received}")
+    print(f"Total Elapsed Time: {total_elapsed_time} [seconds]")
+    print(f"Average Spike Receiver Latency: {average_latency} [seconds]") 
+    print(f"Throughput: {throughput} spikes/second")   
 
     # -------------------------------------------------------------------------
     # Finished

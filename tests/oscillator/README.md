@@ -1,6 +1,6 @@
 # Oscillator Test Program
 
-**Purpose**: This test program is building up to being able to test the real-time capabilities of the KB Board. Ultimately, I am using a simulated oscillator to send spikes in real-time to the Loihi Network. In a similar vein, spikes are read out in "real-time" to blink two LEDs to signify the activation of neurons(_Note_: I realized early on that the NxNet API does not guarantee real-time performance, most operations are batch and schedule at various times depending on when the network can get to it). Future implementations should us embedded and host snips for real-time performance. The aforementioned statements of course are up for debate depending on performance benchmarking uncovered (to be continued).
+**Purpose**: This test program is building up to being able to test the real-time capabilities of the KB Board. I am using a simulated oscillator to send spikes in real-time to the Loihi Network. In a similar vein, spikes are read out in "real-time" to blink two LEDs to signify the activation of neurons(_Note_: I realized early on that the NxNet API does not guarantee real-time performance, most operations are batch and schedule at various times depending on when the network can get to it). Future implementations should us embedded and host snips for real-time performance. The aforementioned statements of course are up for debate depending on performance benchmarking (see below).
 
 ### The following pipeline is created in this test program:
 
@@ -192,3 +192,37 @@ elif neuron_id == 1:
 
 ## Python Threading vs. Multiprocessing Library
 - The threading library is best for I/O bound processes, while multiprocessing is best for CPU bound tasks because it sidesteps the GIL by using separate memory spaces for processes. 
+
+
+## Performance Benchmarking
+- In the main.py file you will see a number of performance measures that are printed at the end of the script. Here is my most recent runs with a comparison of with VS Code Open vs. with only a terminal open. 
+
+**With vs code open**
+```bash
+2024-06-25 10:12:12,400 - [subprocess_logging_handler.py run]:36 - INFO: chip=0 cpu=0 halted, status=0x0
+Finished run successfully.
+Data has been plotted
+Data has been plotted
+pio(read_count=6004, write_count=629, read_bytes=0, write_bytes=266240, read_chars=29099691, write_chars=208429)
+Total Spikes Sent: 348
+Total Spikes Received: 163
+Total Elapsed Time: 11.373448633999942 [seconds]
+Average Spike Receiver Latency: 1.936519448310556e-05 [seconds]
+Throughput: 44.92920453980947 spikes/second
+```
+**With terminal open**
+```bash
+2024-06-25 10:15:57,376 - [subprocess_logging_handler.py run]:36 - INFO: chip=0 cpu=0 halted, status=0x0
+Finished run successfully.
+Data has been plotted
+Data has been plotted
+pio(read_count=5997, write_count=622, read_bytes=0, write_bytes=266240, read_chars=29099634, write_chars=208380)
+Total Spikes Sent: 347
+Total Spikes Received: 160
+Total Elapsed Time: 10.505296040999383 [seconds]
+Average Spike Receiver Latency: 1.9781461913083276e-05 [seconds]
+Throughput: 48.26137198050522 spikes/second
+```
+
+# Conclusions
+- Based on the performance metrics the throughput is much too slow which is what I anticipated from using the NxNet API. As stated earlier, Embedded and Host Snips are ideal for real time performance. 
