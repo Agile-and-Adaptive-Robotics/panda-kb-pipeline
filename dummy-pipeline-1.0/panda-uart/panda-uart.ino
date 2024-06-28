@@ -13,47 +13,37 @@
 
 */
 
-const int rx = 0; 
-const int tx = 1;
+// Master (Arduino Leonardo)
 
-unsigned long timeoutDuration = 30000; // Timeout duration in milliseconds (30 seconds)
-unsigned long lastActivityTime;
-const int ledPin = 2; // LED connected to digital pin 2
+#define MAX_BAUD_RATE 1000000
+#define RTS_PIN 7  // Ready to Send (output)
+#define CTS_PIN 8  // Clear to Send (input)
+
+const byte dataToSend[] = {0x01, 0x02, 0x03, 0x04, 0x05};  // Example binary data
 
 void setup() {
-  pinMode(ledPin, OUTPUT); // Initialize the digital pin as an output
-  Serial.begin(115200); // Set to 115200 bps
-  while (!Serial) {
-    ; // Wait for serial port to connect. Needed for native USB port only
-  }
-  Serial.println("UART echo test with timeout and LED blink");
-  lastActivityTime = millis(); // Initialize the last activity time
+  Serial1.begin(MAX_BAUD_RATE);  // Initialize UART communication at 1 Mbps
+  pinMode(RTS_PIN, OUTPUT);
+  pinMode(CTS_PIN, INPUT);
+
+  Serial.begin(115200);  // For debugging
 }
 
 void loop() {
-  if (Serial.available()) {
-    char c = Serial.read();
-    Serial.print("You wrote: ");
-    Serial.print(c); // Echo received characters
-    if (c == '\r') { // Carriage return detected
-      Serial.println(); // Add newline character
-      blinkLed(); // Blink the LED
-    }
-    lastActivityTime = millis(); // Update the last activity time
-  }
-  
-  // Check for timeout
-  if (millis() - lastActivityTime > timeoutDuration) {
-    Serial.println("Timeout reached. Stopping echo.");
-    while (true) {
-      // Stop execution
-    }
-  }
-}
+  // Check if it's clear to send (CTS from slave)
+  if (digitalRead(CTS_PIN) == HIGH) {
+    // Check if Serial1 Tx buffer has space
+    if (Serial1.availableForWrite() >= sizeof(dataToSend)) {
+      digitalWrite(RTS_PIN, HIGH);  // Signal ready to send
 
-void blinkLed() {
-  digitalWrite(ledPin, HIGH); // Turn the LED on
-  delay(100); // Wait for 100 milliseconds
-  digitalWrite(ledPin, LOW); // Turn the LED off
-  delay(100); // Wait for 100 milliseconds
+      // Send binary data to the slave
+      for (int i = 0; i < sizeof(dataToSend); i++) {
+        Serial1.write(dataToSend[i]);
+      }
+
+      digitalWrite(RTS_PIN, LOW);  // Signal not ready to send
+    }
+  }
+
+  delay(1000);  // Wait before sending the next message
 }

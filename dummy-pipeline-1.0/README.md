@@ -50,3 +50,24 @@ For Real-Time Applications:
 - Full Duplex and generally better for lower latency point to point communication
 - Both device say they support high speed  baud rates, but don't specify a maximum. 
  - Generally, high speed rates are considered to be 230400, 460800, and 921600 bps. 
+- UART is generally for point-to-point communication but it could be designed in software to support a sort of daisy chain configuration so that we can connect all four teensys on a single bus. The issue is that the LattePanda only has one UART port. 
+
+
+
+# Programming Arduino on Latte Panda
+- See /dummy-pipeline-1.0/panda-uart/panda-uart.ino for more details
+- If you code a program that continuously run the device/ resource will be busy and you cannot upload a new sketch. Run the following command to get the PID associated with this process, then kill it: 
+```bash
+sudo fuser /dev/ttyACM0 
+#output should be something like this
+/dev/ttyaCM0:           12439
+
+#kill process
+sudo kill -9 12439
+```
+- To see the current baud rate of the panda -> leondardo connection:
+```bash
+sudo stty -F /dev/ttyACM0
+# to update or change baud rate
+stty -F /dev/ttyACM0
+```
