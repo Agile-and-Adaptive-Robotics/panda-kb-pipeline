@@ -6,6 +6,7 @@
        The panda's core processor speaks to the Arduino Leonardo via an internal USB port "dev/ttyACM0".
     - Serial1 (TTL Serial): Transistor-Transistor Logic Serial, which describe the physical pins 0 (RX) and 1 (TX) on the Arduino 
        Leonardo 
+    - Serial Receive & Transmitter buffer holds 64 bytes on the Leonardo
 
   Prerequisites: 
     - run this in a terminal to allow user level permission of the device driver: 
@@ -18,21 +19,25 @@
 #define MAX_BAUD_RATE 1000000
 
 const byte dataToSend[] = {0x01, 0x02, 0x03, 0x04};  // Example binary data
+bool debug = false; // Set to false to disable debug prints
 
 void setup() {
   Serial1.begin(MAX_BAUD_RATE);  // Initialize UART communication at 1 Mbps
-  Serial.begin(115200);  // For debugging
+  Serial.begin(115200);  // Initialize USB serial communication
 }
 
 void loop() {
-  // Send binary data to the slave
-  Serial.println("Sending data...");
+  Serial.print(Serial.availableForWrite());
+  if (debug) {
+    Serial.println("Sending data to Teensy...");
+  }
   Serial1.write(dataToSend, sizeof(dataToSend));
 
-  // Wait for a response
-  Serial.println("Waiting for response...");
+  if (debug) {
+    Serial.println("Waiting for response from Teensy...");
+  }
   while (Serial1.available() < 4) {
-    // Wait until we receive 4 bytes
+    delay(100);  // Wait until we receive 4 bytes
   }
 
   byte response[4];
@@ -40,13 +45,17 @@ void loop() {
     response[i] = Serial1.read();
   }
 
-  // Print the received response for debugging
-  Serial.print("Received response: ");
-  for (int i = 0; i < 4; i++) {
-    Serial.print(response[i], HEX);
-    Serial.print(" ");
+  if (debug) {
+    Serial.print("Received response: ");
+    for (int i = 0; i < 4; i++) {
+      Serial.print(response[i], HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
   }
-  Serial.println();
+
+  // Send the received response to the LattePanda via USB serial
+  Serial.write(response, sizeof(response));
 
   delay(1000);  // Wait before sending the next message
 }
