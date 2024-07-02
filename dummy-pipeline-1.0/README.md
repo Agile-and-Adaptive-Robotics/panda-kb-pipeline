@@ -5,19 +5,17 @@ This project is dedicated to setting up the basic framework on how our hardware 
 
 ## Design Steps: 
 1. Setup Teensy Board to read potentiometer readings
-2. Create SPI connection between Teensy & Panda Board
+2. Create UART connection between Teensy & Panda Board
 3. Define Loihi Network
 4. Create Host SNIPs on Loihi for Data Exchange between Panda and KB
 
 # 1. Setting up Teensy Board: 
-The following Pin will be used for SPI Communication
-- **Pin 10** = CS (Chip Select)
-- **Pin 11** = MOSI (Main Out, Sub In): Serial Data from master, most significant bit first
-- **Pin 12** = MISO (Main In, Sub Out): Serial Data from subscriber, most significant bit first
-- **Pin 13** = SCLK (Serial Clock)
+The following Pin will be used for UART Communication
+- **Pin 0** = RX (Receive)
+- **Pin 1** = TX (Transmit)
+- The Teensy website has a few more control pins for flow control, [See Here](https://www.pjrc.com/teensy/td_uart.html)
 
-
-# 2. Create SPI Connection between Teensy & Panda Board
+# 2. Create UART Connection between Teensy & Panda Board
 ### Encoding Ideas
 - We will need a rate encoding scheme (i.e. frequency)
 - A latency encoding scheme (i.e. spike timing)
@@ -25,20 +23,15 @@ The following Pin will be used for SPI Communication
 
 See this article for spike encoding [SNNTorch](https://snntorch.readthedocs.io/en/latest/tutorials/tutorial_1.html)
 
-### Notes on SPI Communications: 
-- **SPI Library Does NOT support Peripheral configuration for the Teensy's or any Arduino for that matter**
-    - The work around would be to write our own driver for the on board SPI controller. The SoC datasheet can be found here if you decide to go that route -> [NXP i.MX RT 1060 MCU](https://www.nxp.com/products/processors-and-microcontrollers/arm-microcontrollers/i-mx-rt-crossover-mcus/i-mx-rt1060-crossover-mcu-with-arm-cortex-m7:i.MX-RT1060)
-
-- The other option would be to decide on a different serial protocol that is easier to program given the current Arduino Libraries, see a comparison of I2C and UART below. 
+### UART Communication Considerations:
+- At this time, I'm using a one to one point communication via UART. Of course, this poses issues since we have four Teensy boards that need to communicate with the LattePanda. Future iterations will need to consider using the Arduino Library `SoftwareSerial.h`. The software implementation introduces more latency, and we might need to consider I2C. 
 
 ### Comparison of I2C and UART
 - Below are the considerations of both the LattePanda and Teensy and how they would work together
 
-**Summary of the two's trade offs**  
+**Trade offs**  
 For Real-Time Applications:
-
    -  UART is generally better for real-time applications that require low latency, simplicity, and point-to-point communication. It is more deterministic and has less overhead, making it suitable for applications where quick and reliable data transfer between two devices is critical.
-
    -  I2C can be used in real-time applications where multiple devices need to communicate on the same bus, but it requires careful management of bus contention and potential latency issues. It is less suited for high-speed real-time communication due to its inherent complexities and potential for higher latency.
 
 **I2C**  
@@ -53,8 +46,7 @@ For Real-Time Applications:
 - UART is generally for point-to-point communication but it could be designed in software to support a sort of daisy chain configuration so that we can connect all four teensys on a single bus. The issue is that the LattePanda only has one UART port. 
 
 
-
-# Programming Arduino on Latte Panda
+### Programming Arduino on Latte Panda
 - See /dummy-pipeline-1.0/panda-uart/panda-uart.ino for more details
 - If you code a program that continuously run the device/ resource will be busy and you cannot upload a new sketch. Run the following command to get the PID associated with this process, then kill it: 
 ```bash
@@ -71,3 +63,13 @@ sudo stty -F /dev/ttyACM0
 # to update or change baud rate
 stty -F /dev/ttyACM0
 ```
+# 3. Define Loihi Network
+`TODO`: Need to create an Oscillator Network
+
+# 4. Programming SNIPs
+- In the test program `/tests/oscillator` I quickly realized the limitations of using SpikeGenerator and Receivers which aren't appropriate for real time performance. The reason I used them was to keep things simple and get myself working with the KB API as much as possible. In this section I will discuss steps I took and general findings on programming the SNIPs. 
+`TODO:`
+- Read Github repo that had example code (study, study, study). 
+- Read NxSDK API section that you haven't covered yet.
+
+### Below are some notes on [Combra Lab's] Implementation using Loihi as a controller

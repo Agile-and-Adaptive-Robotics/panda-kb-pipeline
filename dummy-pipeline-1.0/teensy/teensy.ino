@@ -25,6 +25,7 @@ void setup() {
 
 void loop() {
   // Check if Serial1 Rx buffer has data
+  Serial.println(Serial2.available());
   if (Serial2.available() >= 4) {
     byte receivedData[4];
     for (int i = 0; i < 4; i++){
@@ -38,12 +39,12 @@ void loop() {
     }
     Serial.println();
 
-    byte responseData[] = {0xA1, 0xA2, 0xA3, 0xA4};
-    Serial.write(responseData, sizeof(responseData));
+    byte responseData[] = {0x0F, 0x0A, 0x0F, 0x04};
+    Serial2.write(responseData, sizeof(responseData));
 
     Serial.println("Response Sent");
 
   }
-  delay(100); 
+  delay(1000); 
 }
 
