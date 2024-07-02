@@ -25,3 +25,16 @@ Alternatively run the `start-kb.sh` script:
 ```
 ./start-kb.sh
 ```
+
+### Project directory: FIXME: 
+```bash
+project/
+├── include/
+│   ├── MyClass.h
+│   └── AnotherClass.h
+├── src/
+│   ├── MyClass.cpp
+│   └── AnotherClass.cpp
+└── main.cpp
+
+```
