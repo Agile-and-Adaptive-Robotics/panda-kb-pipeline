@@ -1,3 +1,59 @@
+import time
+import numpy as np
+import os
+import threading
+import queue
+import matplotlib.pyplot as plt
+from nxsdk.utils.plotutils import plotRaster
+from nxsdk.graph.channel import Channel
+import nxsdk.api.n2a as nx
+from nxsdk.arch.n2a.n2board import N2Board
+from nxsdk.graph.processes.phase_enums import Phase
+from pinpong.board import Board, Pin
+from OscGenProcess import oscillator
+import matplotlib as mpl
+import psutil
+
+
+mpl.use('Agg')
+
+def create_neuron(net, prototype):
+    neuron = net.createCompartment(prototype)
+    return neuron
+
+def store_resource_map(neurons, net):
+    resource_map = {}
+    for neuron in neurons: 
+        resource_map[neuron.nodeId] = net.resourceMap.compartment(neuron.nodeId)
+
+    return resource_map
+
+# -------------------------------------------------------------------------
+if __name__ == "__main__":
+    net = nx.NxNet()
+
+    prototype = nx.CompartmentPrototype(biasMant=0,
+                                         biasExp=6,  
+                                         vThMant=1000, 
+                                         functionalState=2,
+                                         compartmentVoltageDecay=256,
+                                         compartmentCurrentDecay=410)
+    neurons = []
+    neurons.append(create_neuron(net, prototype))
+    neurons.append(create_neuron(net, prototype))
+    
+    compiler = nx.N2Compiler()
+    board = compiler.compile(net)
+
+    resource_map = store_resource_map(neurons, net)
+
+    # Print the entire dictionary of resource maps
+    print("Resource Maps:")
+    for neuron_id, resource_map in resource_map.items():
+        print(f"Neuron ID {neuron_id}: {resource_map}")
+
+
+""" Data pipeline in this code works
 import serial
 import time
 
@@ -42,3 +98,4 @@ def send_kill_command(ser):
 
 if __name__ == "__main__":
     main()
+"""
