@@ -1,26 +1,44 @@
 import serial
 import time
 
-# Open the serial port. Make sure the port matches the one your Arduino is connected to.
-ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
+# Define serial ports
+USB_SERIAL_PORT = '/dev/ttyACM0'  #Device driver for the USB serial port to Arduino Coprocessor
 
-# Give some time for the serial connection to initialize
-time.sleep(2)
+# Define baud rate
+BAUD_RATE = 1000000
 
-def read_data():
-    # Read response from the Arduino
-    response = ser.read(4)  # Read 4 bytes
-    if len(response) == 4:
-        print("Received response:", [hex(b) for b in response])
-    else:
-        print("No response or incomplete response received")
+# Define the kill command
+KILL_COMMAND = 0xFF
 
-# Read data from Arduino with a finite loop
-loop_count = 50
+def main():
+    # Open the USB serial port
+    with serial.Serial(USB_SERIAL_PORT, BAUD_RATE, timeout=1) as ser:
+        print(f"Connected to {USB_SERIAL_PORT} at {BAUD_RATE} baud.")
+        # start Teensy oscillator process
+        ser.write(bytes([0x00]))
+        start_time = time.time()
 
-for _ in range(loop_count):
-    read_data()
-    time.sleep(1)  # Adjust the sleep time as needed
+        while True:
+            # Check if 60 seconds have passed
+            if time.time() - start_time > 60:
+                send_kill_command(ser)
+                break
 
-# Close the serial connection when done
-ser.close()
+            # Read data from Teensy via Arduino
+            if ser.in_waiting > 0:
+                received_data = ser.read()
+                print(f"Received from Teensy: {received_data}")
+
+                # Echo the data back to Teensy via Arduino
+                ser.write(received_data)
+                print(f"Sent back to Teensy: {received_data}")
+
+            # Sleep to avoid busy waiting
+            time.sleep(0.01)
+
+def send_kill_command(ser):
+    print("Sending kill command.")
+    ser.write(bytes([KILL_COMMAND]))
+
+if __name__ == "__main__":
+    main()

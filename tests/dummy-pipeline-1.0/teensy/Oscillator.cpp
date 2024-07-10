@@ -57,7 +57,7 @@ void Oscillator::onTimer() {
         if (currentDt > dtNow) {
             instance->tLastSpike = currentTime;
             if (instance->spikeCallback) {
-                int neuronId = fNow > 0 ? 0 : 1;
+                uint8_t neuronId = fNow > 0 ? 0 : 1;
                 instance->spikeCallback(neuronId);
             }
         }
