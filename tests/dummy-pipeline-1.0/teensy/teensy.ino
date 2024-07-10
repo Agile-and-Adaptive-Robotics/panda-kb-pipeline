@@ -17,12 +17,14 @@
 |                 |              |                 |
 +-----------------+              +-----------------+
   
-//**Teensy Code**/
+Teensy Code
+*/
 
 #include <Arduino.h>
 #include "Oscillator.h"
+#include <arm_math.h>
 
-#define DATA_PIPELINE_BUS Serial1           //Pins:{0(Rx),1(Tx)}
+#define DATA_PIPELINE_BUS Serial2           //Pins:{7(Rx),8(Tx)}
 #define HOST_COM Serial                     //For debugging, and comms with host PC
 #define BAUD_RATE 1000000                   //1Mbs
 #define LED1 10
@@ -32,7 +34,7 @@ Oscillator osc(200.0, 1.0, 0.0); // amplitude, frequency, phase_shift, duration
 
 #define BUFFER_SIZE 100                
 byte read_buffer[BUFFER_SIZE]; 
-byte write_buffer[BUFFER_SIZE]
+byte write_buffer[BUFFER_SIZE];
 
 
 void spikeCallback(byte neuronId) {
@@ -59,7 +61,7 @@ void setup() {
         //busy waiting for start command
     }
     DATA_PIPELINE_BUS.read(); //flush out start command
-    
+    HOST_COM.println("Starting Oscillator Process...");
     //start oscillator process
     osc.setSpikeCallback(spikeCallback);
     osc.begin();
@@ -69,20 +71,22 @@ void loop() {
 
     while(DATA_PIPELINE_BUS.available() > 0){
         byte data = DATA_PIPELINE_BUS.read();
-        HOST_COM.println("Data received from host, %d", data);
+        HOST_COM.printf("Data received from host, %d\n", data);
         if(data == 0x01){
-            digitalWrite(LED1, HIGH);
-            delay(5);
-            digitalWrite(LED1, LOW);
+          HOST_COM.println("Blinking LED 1");
+          digitalWrite(LED1, HIGH);
+          delay(5);
+          digitalWrite(LED1, LOW);
         }
         else if(data == 0x00){
-            digitalWrite(LED2, HIGH);
-            delay(5);
-            digitalWrite(LED2, LOW);
+          HOST_COM.println("Blinking LED 2");
+          digitalWrite(LED2, HIGH);
+          delay(5);
+          digitalWrite(LED2, LOW);
         }
         else if(data == 0xFF){
-            //kill command
-            handleKillCommand();
+          //kill command
+          handleKillCommand();
         }
     }
 

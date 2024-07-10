@@ -35,7 +35,7 @@ void Oscillator::stop() {
     timer.end();
 }
 
-void Oscillator::setSpikeCallback(void (*callback)(int)) {
+void Oscillator::setSpikeCallback(void (*callback)(uint8_t)) {
     spikeCallback = callback;
 }
 

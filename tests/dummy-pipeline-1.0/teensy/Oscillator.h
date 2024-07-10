@@ -9,7 +9,7 @@ public:
     Oscillator(float amplitude, float frequency, float phase_shift, float duration = -1);
     void begin();
     void stop();
-    void setSpikeCallback(void (*callback)(int));
+    void setSpikeCallback(void (*callback)(uint8_t));
 
 private:
     static void onTimer();
@@ -24,7 +24,7 @@ private:
     float startTime;
     float tLastSpike;
     bool running;
-    void (*spikeCallback)(int);
+    void (*spikeCallback)(uint8_t);
 
     IntervalTimer timer;
 };
