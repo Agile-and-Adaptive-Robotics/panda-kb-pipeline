@@ -20,7 +20,7 @@ def main():
 
         while True:
             # Check if 60 seconds have passed
-            if time.time() - start_time > 60:
+            if time.time() - start_time > 15:
                 send_kill_command(ser)
                 break
 
