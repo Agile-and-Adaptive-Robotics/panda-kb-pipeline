@@ -67,9 +67,7 @@ stty -F /dev/ttyACM0
 `TODO`: Need to create an Oscillator Network
 
 # 4. Programming SNIPs
-- In the test program `/tests/oscillator` I quickly realized the limitations of using SpikeGenerator and Receivers which aren't appropriate for real time performance. The reason I used them was to keep things simple and get myself working with the KB API as much as possible. In this section I will discuss steps I took and general findings on programming the SNIPs. 
-`TODO:`
-- Read Github repo that had example code (study, study, study). 
-- Read NxSDK API section that you haven't covered yet.
+- In the test program `/tests/oscillator` I quickly realized the limitations of using SpikeGenerator and Receivers- they aren't appropriate for real time performance. The reason I used them was to keep things simple and get myself working with the KB API as much as possible. In this section I will discuss steps I took and general findings on programming the SNIPs. 
+- Within this dummy pipeline, I implement encoder and decoder in seperate threads using pythons threading library. This allows the two to execute in parallel. It's important that the two are in seperate and asynchronous threads as the communication channels and the SNIPs they interface with are asynchronous. Additionally, calls to read and write from from channels are blocking so it's important to handle each seperately to avoid deadlock and slowing down either process. 
 
 ### Below are some notes on [Combra Lab's] Implementation using Loihi as a controller

@@ -1,4 +1,4 @@
 #include "nxsdk.h"
 
-int do_run_mgmt(runState *s);
-void run_mgmt(runState *s);
+int do_decoding(runState *s);
+void run_decoding(runState *s);

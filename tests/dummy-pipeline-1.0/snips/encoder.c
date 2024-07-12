@@ -34,7 +34,7 @@ void run_encoding(runState *s){
     readChannel(channelId, &axon, 1);
     uint16_t axonId = 1 << 14 | (axon & 0x3FFF);
     ChipId chipId = nx_nth_chipid(chip);
-    printf("Sending spike at time : %d, axonId %d\n", time, axonId);
+    //printf("Sending spike at time : %d, axonId %d\n", time, axonId);
 
     //send spike
     nx_send_remote_event(time, chipId, (CoreId){.id=4+core}, axonId);
