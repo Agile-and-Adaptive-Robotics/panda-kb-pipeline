@@ -7,12 +7,14 @@ from nxsdk.graph.processes.phase_enums import Phase
 import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import threading
 
 haveDisplay = "DISPLAY" in os.environ
 if not haveDisplay:
     mpl.use('Agg')
 
-NUM_STEP = 20 
+NUM_STEP = 200
+running = True
 
 def create_neuron(net, prototype):
     neuron = net.createCompartment(prototype)
@@ -83,7 +85,7 @@ def create_probes(neurons, probe_parameters, probe_conditions=None):
     return probes
 
 def plot_probes(u_probes, v_probes, s_probes):
-    fig = plt.figure(1002)
+    fig = plt.figure(2002, figsize = (35, 25))
     k = 1
     for i in range(len(u_probes)):
         plt.subplot(len(u_probes), 3, k)
@@ -101,13 +103,26 @@ def plot_probes(u_probes, v_probes, s_probes):
         plt.title(f'Neuron {i} Spikes')
         k += 1
 
-    plt.tight_layout()
+    plt.tight_layout(pad=3.0, w_pad=3.0, h_pad=3.0)
     if haveDisplay:
         plt.show()
     else: 
         fileName = "probes_plot.png"
         print(f"No display available. Saving plot to {fileName}")
         fig.savefig(fileName)
+
+def encoder_thread(encoderChannel, num_steps):
+    curr_neuron = 0
+    for step in range(num_steps): 
+        encoderChannel.write(1, [curr_neuron]) 
+        curr_neuron = 1 - curr_neuron #toggle between neuron 0 and neuron 1
+
+def decoder_thread(decoderChannel):
+    global running
+    while running: 
+        if(decoderChannel.probe()):
+            data = decoderChannel.read(2)
+            print(f"Received from decoder, [synapse Id, time of spike]: {data}")
 
 if __name__ == "__main__":
     net = nx.NxNet()
@@ -174,9 +189,11 @@ if __name__ == "__main__":
                                     funcName = funcName,
                                     guardName = guardName)
     
+    # Message size is 4 bytes, number of elements is 1. Therefore, only one integer can be sent at a time(int = 4 bytes).
+    # Messase size must be multple of four.
     encoderChannel = board.createChannel(name = b'nxEncoder', 
-                                         messageSize = 4, # byte size of a single packed message, must be multiple of 4
-                                         numElements = 1)
+                                         messageSize = 4,
+                                         numElements = 2)
     
     #Create input channel to the encoding process: SuperHost --> Loihi
     encoderChannel.connect(None, encoderSnip)
@@ -192,23 +209,27 @@ if __name__ == "__main__":
     
     decoderChannel = board.createChannel(name = b'nxDecoder',
                                          messageSize = 4,
-                                         numElements = 1)
+                                         numElements = 32)
     
-    #Create output channel from the decoding process: Loihi --> SuperHost
+    #Create output channel from the decoding process: SuperHost <-- Loihi
     decoderChannel.connect(decoderSnip, None)
     
+    encoder_thread = threading.Thread(target=encoder_thread, args=(encoderChannel, NUM_STEP))
+    decoder_thread = threading.Thread(target=decoder_thread, args=(decoderChannel,))
 
+    
     # Run the network and insert spikes
+    running = True
     board.run(NUM_STEP, aSync=True)
 
-    curr_neuron = 0
-    for steps in range(NUM_STEP): 
-        encoderChannel.write(1, [curr_neuron]) 
-        curr_neuron = 1 - curr_neuron #toggle between neuron 0 and neuron 1
+    encoder_thread.start()
+    decoder_thread.start()
 
-
-    print("Finished running network.")
+    encoder_thread.join()
     board.finishRun()
+    print("Run finished")
+    running = False
+    decoder_thread.join()
     board.disconnect()
 
     #plot the probes
