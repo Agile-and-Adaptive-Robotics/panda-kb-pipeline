@@ -28,6 +28,7 @@ DECODER_MSG_SIZE = 4
 
 #Network params
 NUM_STEP = 200
+NUM_NEURONS = 2 # add more neurons as needed
 
 """GLOBAL VARIABLES""" 
 # Add as needed
@@ -42,12 +43,8 @@ if __name__ == "__main__":
                                         compartmentVoltageDecay=256,
                                         compartmentCurrentDecay=4096)
     
-    neurons = []
-    neurons.append(create_neuron(net, prototype))
-    neurons.append(create_neuron(net, prototype))
-    # Add more neurons as needed
-    # neurons.append(create_neuron(net, prototype))
-
+    neurons = [create_neuron(net, prototype) for _ in range(NUM_NEURONS)]
+  
     # Create input layer
     input_conn_proto = nx.ConnectionPrototype(weight = 255)
     inputSynapseIds = create_input_layer(net, input_conn_proto, neurons)
@@ -63,15 +60,11 @@ if __name__ == "__main__":
                         nx.ProbeParameter.SPIKE]
 
     probes = create_probes(neurons, probe_parameters)
-    u_probes = [probe[0] for probe in probes] # Current probes
-    v_probes = [probe[1] for probe in probes] # Voltage probes
-    s_probes = [probe[2] for probe in probes] # Spike probes
-
+    u_probes, v_probes, s_probes = zip(*probes) # Unpack the probes into separate lists
 
     compiler = nx.N2Compiler()
     board = compiler.compile(net)
 
-   
     resource_maps = store_resource_maps(net, neurons, inputSynapseIds, outputSynapseIds)
     
     # Print the entire dictionary of resource maps, useful for understand NxSDK resource allocation
