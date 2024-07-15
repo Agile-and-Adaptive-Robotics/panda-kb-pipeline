@@ -1,8 +1,7 @@
 import os
-import threading
-# User-defined functions from utility files
+import multiprocessing
 from loihi_utils import *
-from serial_comm import * 
+from serial_comm import SerialDataPipeline
 
 from nxsdk.utils.plotutils import plotRaster
 from nxsdk.graph.channel import Channel
@@ -10,176 +9,121 @@ import nxsdk.api.n2a as nx
 from nxsdk.arch.n2a.n2board import N2Board
 from nxsdk.graph.processes.phase_enums import Phase
 
-
-
 """CONSTANTS"""
-# SNIP params
-INCLUDE_DIR = os.path.join(os.getcwd(), 'snips/')  #include directory used for compiling snips
+USB_SERIAL_PORT = '/dev/ttyACM0'  #Device driver for the USB serial port to Arduino Coprocessor
+BAUD_RATE = 1000000
+
+INCLUDE_DIR = os.path.join(os.getcwd(), 'snips/')
 ENCODER_FUNC_NAME = "run_encoding"
 ENCODER_GUARD_NAME = "do_encoding"
 DECODER_FUNC_NAME = "run_decoding"
 DECODER_GUARD_NAME = "do_decoding"
 
-# Channel params
-CHANNEL_BUFFER_SIZE = 32   # Must be multiple of 4... 
-ENCODER_MSG_SIZE = 4       # (32 * messageSize = 128 bytes)                 
+CHANNEL_BUFFER_SIZE = 32
+ENCODER_MSG_SIZE = 4
 DECODER_MSG_SIZE = 4
 
-#Network params
 NUM_STEP = 200
-NUM_NEURONS = 2 # add more neurons as needed
+NUM_NEURONS = 2
 
-"""GLOBAL VARIABLES""" 
-# Add as needed
-
-
-""""FUNCTIONS"""
-def encoder_thread(encoderChannel, num_steps):
-    curr_neuron = 0
-    for step in range(num_steps):
-        encoderChannel.write(1, [curr_neuron])
-        curr_neuron = 1 - curr_neuron  # toggle between neuron 0 and neuron 1
-
-def decoder_thread(decoderChannel, stop_event):
+def encoder_process(encoderChannel, stop_event, encoder_queue):
     while not stop_event.is_set():
-         if(decoderChannel.probe()):
+        try:
+            data = encoder_queue.get(timeout=1)  # Wait for data from the queue with a timeout
+            encoderChannel.write(1, [data])
+        except multiprocessing.queues.Empty:
+            continue  # Timeout occurred, check stop_event and continue
+
+def decoder_process(decoderChannel, stop_event, decoder_queue):
+    while not stop_event.is_set():
+        if decoderChannel.probe():
             data = decoderChannel.read(2)
-            #print(f"Received from decoder, [synapse Id, time of spike]: {data}")
+            decoder_queue.put(data)
 
 
-"""MAIN"""
+
 if __name__ == "__main__":
     net = nx.NxNet()
 
     prototype = nx.CompartmentPrototype(biasMant=0,
-                                        biasExp=6,  
-                                        vThMant=1000, 
+                                        biasExp=6,
+                                        vThMant=1000,
                                         functionalState=2,
                                         compartmentVoltageDecay=256,
                                         compartmentCurrentDecay=4096)
-    
+
     neurons = [create_neuron(net, prototype) for _ in range(NUM_NEURONS)]
-  
-    # Create input layer
-    input_conn_proto = nx.ConnectionPrototype(weight = 255)
+
+    input_conn_proto = nx.ConnectionPrototype(weight=255)
     inputSynapseIds = create_input_layer(net, input_conn_proto, neurons)
     print("Logical Input Synapse IDs:", inputSynapseIds)
 
-    # Create output layer
     outputSynapseIds = create_output_layer(net, neurons)
     print("Logical Output Synapse IDs:", outputSynapseIds)
 
-    # Create probes
     probe_parameters = [nx.ProbeParameter.COMPARTMENT_CURRENT,
                         nx.ProbeParameter.COMPARTMENT_VOLTAGE,
                         nx.ProbeParameter.SPIKE]
 
     probes = create_probes(neurons, probe_parameters)
-    u_probes, v_probes, s_probes = zip(*probes) # Unpack the probes into separate lists
+    u_probes, v_probes, s_probes = zip(*probes)
 
     compiler = nx.N2Compiler()
     board = compiler.compile(net)
 
     resource_maps = store_resource_maps(net, neurons, inputSynapseIds, outputSynapseIds)
-    
-    # Print the entire dictionary of resource maps, useful for understand NxSDK resource allocation
     print("Resource Maps:")
     print(resource_maps)
 
+    encoderSnip = board.createSnip(phase=Phase.EMBEDDED_SPIKING,
+                                   includeDir=INCLUDE_DIR,
+                                   cFilePath=INCLUDE_DIR + "encoder.c",
+                                   funcName=ENCODER_FUNC_NAME,
+                                   guardName=ENCODER_GUARD_NAME)
 
-    # Create encoder SNIP, which runs spiking injection process. If spikes are detected on channel, SNIP will process them.
-    encoderSnip = board.createSnip(phase = Phase.EMBEDDED_SPIKING,
-                                    includeDir = INCLUDE_DIR,
-                                    cFilePath = INCLUDE_DIR +"encoder.c",
-                                    funcName = ENCODER_FUNC_NAME,
-                                    guardName = ENCODER_GUARD_NAME)
-    
-    encoderChannel = board.createChannel(name = b'nxEncoder', 
-                                         messageSize = ENCODER_MSG_SIZE,
-                                         numElements = CHANNEL_BUFFER_SIZE)
-    #Connect input channel to the encoding process: SuperHost --> Loihi
+    encoderChannel = board.createChannel(name=b'nxEncoder',
+                                         messageSize=ENCODER_MSG_SIZE,
+                                         numElements=CHANNEL_BUFFER_SIZE)
     encoderChannel.connect(None, encoderSnip)
 
-    # Create decoder SNIP, which runs management process per time step. Process detects spikes from output layer
-    decoderSnip = board.createSnip(phase = Phase.EMBEDDED_MGMT,
-                                    includeDir = INCLUDE_DIR,
-                                    cFilePath = INCLUDE_DIR + "decoder.c",
-                                    funcName = DECODER_FUNC_NAME,
-                                    guardName = DECODER_GUARD_NAME)
-    
-    decoderChannel = board.createChannel(name = b'nxDecoder',
-                                         messageSize = DECODER_MSG_SIZE,
-                                         numElements = CHANNEL_BUFFER_SIZE)
-    
-    #Connect output channel from the decoding process: SuperHost <-- Loihi
+    decoderSnip = board.createSnip(phase=Phase.EMBEDDED_MGMT,
+                                   includeDir=INCLUDE_DIR,
+                                   cFilePath=INCLUDE_DIR + "decoder.c",
+                                   funcName=DECODER_FUNC_NAME,
+                                   guardName=DECODER_GUARD_NAME)
+
+    decoderChannel = board.createChannel(name=b'nxDecoder',
+                                         messageSize=DECODER_MSG_SIZE,
+                                         numElements=CHANNEL_BUFFER_SIZE)
     decoderChannel.connect(decoderSnip, None)
 
-    # Define stop event for threads
-    stop_event = threading.Event()
-    
-    # Define encoding and decoding threads, see README.md for more information
-    encoder_thread = threading.Thread(target=encoder_thread, args=(encoderChannel, NUM_STEP))
-    decoder_thread = threading.Thread(target=decoder_thread, args=(decoderChannel, stop_event))
+    # Used to halt the pipeline processes
+    stop_event = multiprocessing.Event()
+    #Used for inter-process communication between the pipeline processes
+    encoder_queue = multiprocessing.Queue()
+    decoder_queue = multiprocessing.Queue()
 
-    
-    # Run the network and insert spikes
+    encoder_proc = multiprocessing.Process(target=encoder_process, args=(encoderChannel, stop_event, encoder_queue))
+    decoder_proc = multiprocessing.Process(target=decoder_process, args=(decoderChannel, stop_event, decoder_queue))
+
+    serial_pipeline = SerialDataPipeline(USB_SERIAL_PORT, BAUD_RATE, stop_event)
+    serial_proc = multiprocessing.Process(target=serial_pipeline.run)
+
+
+    # Run the board and the pipeline processes
     board.run(NUM_STEP, aSync=True)
-
-    encoder_thread.start()
-    decoder_thread.start()
-
-    # Cleanup and plot the probes
-    encoder_thread.join()
+    encoder_proc.start()
+    decoder_proc.start()
+    serial_proc.start()
+    # Wait for the board to finish running
     board.finishRun()
     print("Run finished")
-    stop_event.set() # Stop the decoder thread
-    decoder_thread.join()
+    # Stop the pipeline processes
+    stop_event.set()
+    encoder_proc.join()
+    decoder_proc.join()
+    serial_proc.join()
+
     board.disconnect()
+    # Plot the probes
     plot_probes(u_probes, v_probes, s_probes)
-
-""" Data pipeline in this code works
-import serial
-import time
-
-# Define serial ports
-USB_SERIAL_PORT = '/dev/ttyACM0'  #Device driver for the USB serial port to Arduino Coprocessor
-
-# Define baud rate
-BAUD_RATE = 1000000
-
-# Define the kill command
-KILL_COMMAND = 0xFF
-
-def main():
-    # Open the USB serial port
-    with serial.Serial(USB_SERIAL_PORT, BAUD_RATE, timeout=1) as ser:
-        print(f"Connected to {USB_SERIAL_PORT} at {BAUD_RATE} baud.")
-        # start Teensy oscillator process
-        ser.write(bytes([0x00]))
-        start_time = time.time()
-
-        while True:
-            # Check if 60 seconds have passed
-            if time.time() - start_time > 15:
-                send_kill_command(ser)
-                break
-
-            # Read data from Teensy via Arduino
-            if ser.in_waiting > 0:
-                received_data = ser.read()
-                print(f"Received from Teensy: {received_data}")
-
-                # Echo the data back to Teensy via Arduino
-                ser.write(received_data)
-                print(f"Sent back to Teensy: {received_data}")
-
-            # Sleep to avoid busy waiting
-            time.sleep(0.01)
-
-def send_kill_command(ser):
-    print("Sending kill command.")
-    ser.write(bytes([KILL_COMMAND]))
-
-if __name__ == "__main__":
-    main()
-"""

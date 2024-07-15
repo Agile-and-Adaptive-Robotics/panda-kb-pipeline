@@ -1,41 +1,36 @@
 import serial
-import time
 
-# Define serial ports
-USB_SERIAL_PORT = '/dev/ttyACM0'  #Device driver for the USB serial port to Arduino Coprocessor
+class SerialDataPipeline:
+    def __init__(self, port, baud_rate, stop_event, encoder_queue, decoder_queue):
+        self.port = port
+        self.baud_rate = baud_rate
+        self.stop_event = stop_event
+        self.encoder_queue = encoder_queue
+        self.decoder_queue = decoder_queue
 
-# Define baud rate
-BAUD_RATE = 1000000
+    def run(self):
+        try:
+            ser = serial.Serial(self.port, self.baud_rate, timeout=1)
+            print(f"Connected to {self.port} at {self.baud_rate} baud.")
+            
+            while not self.stop_event.is_set():
+                if ser.in_waiting > 0:
+                    data = ser.read(ser.in_waiting)
+                    self.encoder_queue.put(data)  # Pass raw bytes to encoder process
 
-# Define the kill command
-KILL_COMMAND = 0xFF
+                if not self.decoder_queue.empty():
+                    data_to_send = self.decoder_queue.get()
+                    ser.write(data_to_send)
+                    print(f"Data sent to peripheral: {data_to_send}")
 
-def main():
-    # Open the USB serial port
-    with serial.Serial(USB_SERIAL_PORT, BAUD_RATE, timeout=1) as ser:
-        print(f"Connected to {USB_SERIAL_PORT} at {BAUD_RATE} baud.")
-        # start Teensy oscillator process
-        ser.write(bytes([0x00]))
-        start_time = time.time()
 
-        while True:
-            # Check if 60 seconds have passed
-            if time.time() - start_time > 15:
-                send_kill_command(ser)
-                break
+        except serial.SerialException as e:
+            print(f"Error opening serial port: {e}")
 
-            # Read data from Teensy via Arduino
-            if ser.in_waiting > 0:
-                received_data = ser.read()
-                print(f"Received from Teensy: {received_data}")
-
-                # Echo the data back to Teensy via Arduino
-                ser.write(received_data)
-                print(f"Sent back to Teensy: {received_data}")
-
-            # Sleep to avoid busy waiting
-            time.sleep(0.01)
-
-def send_kill_command(ser):
-    print("Sending kill command.")
-    ser.write(bytes([KILL_COMMAND]))
+        finally:
+            if ser.is_open:
+                # Shut down peripheral device to shut down oscillator process
+                ser.write(bytes[0xFF])
+                print("Sent shutdown signal to peripheral device.")
+                ser.close()
+            print("Serial port closed, pipeline exiting.")
