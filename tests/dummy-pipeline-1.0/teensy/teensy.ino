@@ -26,7 +26,7 @@ Teensy Code
 
 #define DATA_PIPELINE_BUS Serial2           //Pins:{7(Rx),8(Tx)}
 #define HOST_COM Serial                     //For debugging, and comms with host PC
-#define BAUD_RATE 1000000                   //1Mbs
+#define BAUD_RATE 256000                   //1Mbs
 #define LED1 10
 #define LED2 11
 
@@ -38,7 +38,12 @@ byte write_buffer[BUFFER_SIZE];
 
 
 void spikeCallback(byte neuronId) {
+  if(DATA_PIPELINE_BUS.availableForWrite()){
     DATA_PIPELINE_BUS.write(neuronId & 0x01); 
+  }
+  else{
+    //do nothing but add error logging soon
+  }
 }
 
 
@@ -55,13 +60,15 @@ void setup() {
      * this code increases the buffer size to 104 bytes (i.e. 100 bytes + 4 bytes FIFO)
      */
     DATA_PIPELINE_BUS.addMemoryForRead(read_buffer, BUFFER_SIZE);
-    DATA_PIPELINE_BUS.addMemoryForWrite(write_buffer, BUFFER_SIZE);
-
+    DATA_PIPELINE_BUS.addMemoryForWrite(write_buffer, BUFFER_SIZE); //total is 139 bytes
+    HOST_COM.println("Waiting for start command...\n");
+    HOST_COM.printf("Num bytes available for write...%d\n", DATA_PIPELINE_BUS.availableForWrite());
     while(DATA_PIPELINE_BUS.available() == 0){
         //busy waiting for start command
     }
     DATA_PIPELINE_BUS.read(); //flush out start command
     HOST_COM.println("Starting Oscillator Process...");
+    delay(10);
     //start oscillator process
     osc.setSpikeCallback(spikeCallback);
     osc.begin();
