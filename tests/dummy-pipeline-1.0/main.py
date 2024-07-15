@@ -1,5 +1,7 @@
 import os
-import multiprocessing
+import time
+import threading
+import queue
 from loihi_utils import *
 from serial_comm import SerialDataPipeline
 
@@ -10,8 +12,8 @@ from nxsdk.arch.n2a.n2board import N2Board
 from nxsdk.graph.processes.phase_enums import Phase
 
 """CONSTANTS"""
-USB_SERIAL_PORT = '/dev/ttyACM0'  #Device driver for the USB serial port to Arduino Coprocessor
-BAUD_RATE = 1000000
+USB_SERIAL_PORT = '/dev/ttyACM0'  # Device driver for the USB serial port to Arduino Coprocessor
+BAUD_RATE = 256000
 
 INCLUDE_DIR = os.path.join(os.getcwd(), 'snips/')
 ENCODER_FUNC_NAME = "run_encoding"
@@ -23,23 +25,31 @@ CHANNEL_BUFFER_SIZE = 32
 ENCODER_MSG_SIZE = 4
 DECODER_MSG_SIZE = 4
 
-NUM_STEP = 200
+NUM_STEP = 500
 NUM_NEURONS = 2
 
-def encoder_process(encoderChannel, stop_event, encoder_queue):
+def encoder_thread(encoderChannel, stop_event, encoder_queue):
     while not stop_event.is_set():
-        try:
-            data = encoder_queue.get(timeout=1)  # Wait for data from the queue with a timeout
-            encoderChannel.write(1, [data])
-        except multiprocessing.queues.Empty:
-            continue  # Timeout occurred, check stop_event and continue
+        #print("Is encoder queue empty?", encoder_queue.empty())
+        if not encoder_queue.empty():
+            try:
+                data = encoder_queue.get(timeout = 0.01)
+                data_32bit = int.from_bytes(data, byteorder='little', signed=False)
+                print("Data received from pipeline:", data_32bit)
+                encoderChannel.write(1, [data_32bit])
+            except queue.Empty:
+                continue
+        time.sleep(0.001)
 
-def decoder_process(decoderChannel, stop_event, decoder_queue):
+def decoder_thread(decoderChannel, stop_event, decoder_queue):
     while not stop_event.is_set():
         if decoderChannel.probe():
-            data = decoderChannel.read(2)
-            decoder_queue.put(data)
-
+            data = decoderChannel.read(1) 
+            low_8_bits = data[0] & 0xFF
+            print("Data received from Loihi, sending to pipeline:", data)
+            decoder_queue.put(low_8_bits.to_bytes(1, byteorder='little', signed=False))
+            print(f"Byte {low_8_bits} sent to teensy.")
+        time.sleep(0.001)
 
 
 if __name__ == "__main__":
@@ -97,33 +107,44 @@ if __name__ == "__main__":
                                          numElements=CHANNEL_BUFFER_SIZE)
     decoderChannel.connect(decoderSnip, None)
 
+
     # Used to halt the pipeline processes
-    stop_event = multiprocessing.Event()
-    #Used for inter-process communication between the pipeline processes
-    encoder_queue = multiprocessing.Queue()
-    decoder_queue = multiprocessing.Queue()
+    
+    stop_event = threading.Event()
+    # Used for inter-thread communication between the pipeline processes
+    encoder_queue = queue.Queue()
+    decoder_queue = queue.Queue()
 
-    encoder_proc = multiprocessing.Process(target=encoder_process, args=(encoderChannel, stop_event, encoder_queue))
-    decoder_proc = multiprocessing.Process(target=decoder_process, args=(decoderChannel, stop_event, decoder_queue))
+    encoder_thr = threading.Thread(target=encoder_thread, args=(encoderChannel, stop_event, encoder_queue))
+    decoder_thr = threading.Thread(target=decoder_thread, args=(decoderChannel, stop_event, decoder_queue))
 
-    serial_pipeline = SerialDataPipeline(USB_SERIAL_PORT, BAUD_RATE, stop_event)
-    serial_proc = multiprocessing.Process(target=serial_pipeline.run)
+    serial_pipeline = SerialDataPipeline(USB_SERIAL_PORT, BAUD_RATE, stop_event, encoder_queue, decoder_queue)
+    serial_thr = threading.Thread(target=serial_pipeline.run)
+    
+    board.start()
+    test_data = 1
+    encoderChannel.write(1, [test_data])
 
+    try:
+        # Run the board and the pipeline threads
+        board.run(NUM_STEP, aSync=True)
+        encoder_thr.start()
+        decoder_thr.start()
+        serial_thr.start()
 
-    # Run the board and the pipeline processes
-    board.run(NUM_STEP, aSync=True)
-    encoder_proc.start()
-    decoder_proc.start()
-    serial_proc.start()
-    # Wait for the board to finish running
-    board.finishRun()
-    print("Run finished")
-    # Stop the pipeline processes
-    stop_event.set()
-    encoder_proc.join()
-    decoder_proc.join()
-    serial_proc.join()
+       
+        # Wait for the board to finish running
+        board.finishRun()
+        print("Run finished")
+    
+    finally:
+        #Stop the pipeline threads
+        stop_event.set()
+        encoder_thr.join()
+        decoder_thr.join()
+        serial_thr.join()
 
-    board.disconnect()
-    # Plot the probes
-    plot_probes(u_probes, v_probes, s_probes)
+        board.disconnect()
+
+        # Plot the probes
+        plot_probes(u_probes, v_probes, s_probes)
