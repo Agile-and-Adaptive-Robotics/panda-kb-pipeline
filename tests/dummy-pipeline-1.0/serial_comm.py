@@ -2,6 +2,7 @@ import serial
 import multiprocessing
 import time
 
+
 class SerialDataPipeline:
     def __init__(self, port, baud_rate, stop_event, encoder_queue, decoder_queue, debug_enabled):
         self.port = port
