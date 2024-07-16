@@ -50,18 +50,18 @@ def get_resource_map(net, neuron, inputSynapseId, outputSynapseId):
     }
 
 """
-Brief:
+@Brief:
     This function takes a neural network, a list of neurons, and their corresponding
     input and output synapse IDs, and maps the logical IDs to physical hardware IDs. 
     The mappings are then stored in a dictionary with neuron names as keys.
 
-Parameters:
+@Parameters:
     net (nx.NxNet): The neural network object containing the neurons and synapses.
     neurons (list of nx.NxCompartment): A list of neuron objects to be mapped.
     inputSynapseIds (list of int): A list of input synapse logical IDs corresponding to the neurons.
     outputSynapseIds (list of int): A list of output synapse logical IDs corresponding to the neurons.
 
-Returns:
+@Returns:
     dict: A dictionary containing the resource mappings for each neuron. The keys are 
           neuron names (e.g., "Neuron0", "Neuron1"), and the values are the results 
           of the `get_resource_map` function, which maps the logical IDs to physical IDs.
@@ -74,15 +74,15 @@ def store_resource_maps(net, neurons, inputSynapseIds, outputSynapseIds):
     return resource_maps
 
 """
-Brief: 
+@Brief: 
     This function creates probes for the given neurons and probe parameters. 
 
-Parameters: 
+@Parameters: 
     neurons (list of nx.NxCompartment): A list of neuron objects to be probed.
     probe_parameters (list of nx.ProbeParameter): A list of probe parameters to be probed.
     probe_conditions (list of nx.ProbeCondition): A list of probe conditions to be probed. Usually set to None. 
 
-Returns:
+@Returns:
     2D list of probes. Each sublist contains the probes for a single neuron [u, v, s].
 """
 def create_probes(neurons, probe_parameters, probe_conditions=None):
