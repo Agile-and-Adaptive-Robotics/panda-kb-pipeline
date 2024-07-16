@@ -34,9 +34,10 @@ void setup() {
   HOST_COM.begin(BAUD_RATE);
   DATA_PIPELINE_BUS.begin(BAUD_RATE);
   while(HOST_COM.available() == 0){
-     //busy wait for first command
+     //busy wait for first command to start pipeline
   }
-  HOST_COM.read(); //flush first command from buffer
+  byte pass_to_teensy = HOST_COM.read();  //start command received
+  DATA_PIPELINE_BUS.write(pass_to_teensy);
 }
 
 void loop() {

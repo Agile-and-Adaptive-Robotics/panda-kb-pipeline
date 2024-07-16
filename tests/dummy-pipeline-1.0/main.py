@@ -14,6 +14,7 @@ from nxsdk.graph.processes.phase_enums import Phase
 """CONSTANTS"""
 USB_SERIAL_PORT = '/dev/ttyACM0'  # Device driver for the USB serial port to Arduino Coprocessor
 BAUD_RATE = 256000
+ENDIANNESS = 'little'
 
 INCLUDE_DIR = os.path.join(os.getcwd(), 'snips/')
 ENCODER_FUNC_NAME = "run_encoding"
@@ -30,13 +31,14 @@ NUM_NEURONS = 2
 
 def encoder_thread(encoderChannel, stop_event, encoder_queue):
     while not stop_event.is_set():
-        #print("Is encoder queue empty?", encoder_queue.empty())
+        #print("Is encoder queue empty?", encoder_queue.empty()) #debugging
         if not encoder_queue.empty():
             try:
                 data = encoder_queue.get(timeout = 0.01)
-                data_32bit = int.from_bytes(data, byteorder='little', signed=False)
-                print("Data received from pipeline:", data_32bit)
-                encoderChannel.write(1, [data_32bit])
+                data_32bit = int.from_bytes(data, byteorder=ENDIANNESS, signed=False)
+                # print("Data received from pipeline:", data_32bit) #debugging
+                if encoderChannel.probe():
+                    encoderChannel.write(1, [data_32bit])
             except queue.Empty:
                 continue
         time.sleep(0.001)
@@ -47,7 +49,7 @@ def decoder_thread(decoderChannel, stop_event, decoder_queue):
             data = decoderChannel.read(1) 
             low_8_bits = data[0] & 0xFF
             print("Data received from Loihi, sending to pipeline:", data)
-            decoder_queue.put(low_8_bits.to_bytes(1, byteorder='little', signed=False))
+            decoder_queue.put(low_8_bits.to_bytes(1, byteorder=ENDIANNESS, signed=False))
             print(f"Byte {low_8_bits} sent to teensy.")
         time.sleep(0.001)
 
@@ -122,8 +124,8 @@ if __name__ == "__main__":
     serial_thr = threading.Thread(target=serial_pipeline.run)
     
     board.start()
-    test_data = 1
-    encoderChannel.write(1, [test_data])
+    #test_data = 1
+    #encoderChannel.write(1, [test_data])
 
     try:
         # Run the board and the pipeline threads
@@ -135,11 +137,11 @@ if __name__ == "__main__":
        
         # Wait for the board to finish running
         board.finishRun()
+        stop_event.set()
         print("Run finished")
     
     finally:
         #Stop the pipeline threads
-        stop_event.set()
         encoder_thr.join()
         decoder_thr.join()
         serial_thr.join()
