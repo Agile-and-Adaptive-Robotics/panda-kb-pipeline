@@ -48,7 +48,7 @@ CHANNEL_BUFFER_SIZE = 32
 ENCODER_MSG_SIZE = 4
 DECODER_MSG_SIZE = 4
 
-NUM_STEP = 5000
+NUM_STEP = 1000
 NUM_NEURONS = 2
 
 def debug_logger(message, debug_enabled):
@@ -189,16 +189,15 @@ if __name__ == "__main__":
 
     
     board.start()
-    time.sleep(0.01) # very small delay for Teensy to start Oscillator
-    encoderChannel.write(1, [0])  #Put something in pipe to ensure network slows down
-    encoderChannel.write(1, [1])  #
-
+    encoder_thr.start()
+    decoder_thr.start()
+    serial_thr.start()
     try:
         # Run the board and the pipeline threads
         board.run(NUM_STEP, aSync=True)
-        encoder_thr.start()
-        decoder_thr.start()
-        serial_thr.start()
+        #encoder_thr.start()
+        #decoder_thr.start()
+        #serial_thr.start()
 
        
         # Wait for the board to finish running
