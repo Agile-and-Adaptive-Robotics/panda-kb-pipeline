@@ -18,7 +18,7 @@
 
 #include <Arduino.h>
 // Communication with the peripheral: pins{0(Rx), 1(Tx)}
-#define BAUD_RATE 256000
+#define BAUD_RATE 1000000
 #define HOST_COM Serial
 #define DATA_PIPELINE_BUS Serial1
 
