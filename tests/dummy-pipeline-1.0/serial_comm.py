@@ -2,6 +2,7 @@ import serial
 import multiprocessing
 import time
 
+
 class SerialDataPipeline:
     def __init__(self, port, baud_rate, stop_event, encoder_queue, decoder_queue):
         self.port = port
@@ -9,6 +10,8 @@ class SerialDataPipeline:
         self.stop_event = stop_event
         self.encoder_queue = encoder_queue
         self.decoder_queue = decoder_queue
+        self.recv_data_count = 0
+        self.send_data_count = 0
 
     def run(self):
         try:
@@ -22,11 +25,13 @@ class SerialDataPipeline:
                     #print(f"Data received from peripheral device: {ser.in_waiting} bytes.")
                     data = ser.read(1)
                     self.encoder_queue.put(data)  # Pass raw bytes to encoder process
+                    self.recv_data_count += 1
                     #print(f"Data put in encoder_queue: {data}")
                 if not self.decoder_queue.empty():
                     data_to_send = self.decoder_queue.get()
                     ser.write(data_to_send)
-                    print(f"Data sent to peripheral: {data_to_send}")
+                    self.send_data_count += 1
+                    #print(f"Data sent to peripheral: {data_to_send}")
 
 
         except serial.SerialException as e:
@@ -38,3 +43,11 @@ class SerialDataPipeline:
                 print("Sent shutdown signal to peripheral device.")
                 ser.close()
             print("Serial port closed, pipeline exiting.")
+            print(f"Total data received: {self.recv_data_count} bytes")
+            print(f"Total data sent: {self.send_data_count} bytes")
+
+    def get_recv_data_count(self):
+        return self.recv_data_count
+
+    def get_send_data_count(self):
+        return self.send_data_count

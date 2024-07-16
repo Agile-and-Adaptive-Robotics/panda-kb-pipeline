@@ -13,7 +13,7 @@ from nxsdk.graph.processes.phase_enums import Phase
 
 """CONSTANTS"""
 USB_SERIAL_PORT = '/dev/ttyACM0'  # Device driver for the USB serial port to Arduino Coprocessor
-BAUD_RATE = 256000
+BAUD_RATE = 256000  
 
 INCLUDE_DIR = os.path.join(os.getcwd(), 'snips/')
 ENCODER_FUNC_NAME = "run_encoding"
@@ -30,12 +30,12 @@ NUM_NEURONS = 2
 
 def encoder_thread(encoderChannel, stop_event, encoder_queue):
     while not stop_event.is_set():
-        #print("Is encoder queue empty?", encoder_queue.empty())
+        #print("Is encoder queue empty?", encoder_queue.empty()) #Debugging
         if not encoder_queue.empty():
             try:
                 data = encoder_queue.get(timeout = 0.01)
                 data_32bit = int.from_bytes(data, byteorder='little', signed=False)
-                print("Data received from pipeline:", data_32bit)
+                print("Data received from pipeline:", data_32bit) #Debugging
                 encoderChannel.write(1, [data_32bit])
             except queue.Empty:
                 continue
@@ -46,9 +46,9 @@ def decoder_thread(decoderChannel, stop_event, decoder_queue):
         if decoderChannel.probe():
             data = decoderChannel.read(1) 
             low_8_bits = data[0] & 0xFF
-            print("Data received from Loihi, sending to pipeline:", data)
+            print("Data received from Loihi, sending to pipeline:", data) #Debugging
             decoder_queue.put(low_8_bits.to_bytes(1, byteorder='little', signed=False))
-            print(f"Byte {low_8_bits} sent to teensy.")
+            #print(f"Byte {low_8_bits} sent to teensy.") #Debugging
         time.sleep(0.001)
 
 
