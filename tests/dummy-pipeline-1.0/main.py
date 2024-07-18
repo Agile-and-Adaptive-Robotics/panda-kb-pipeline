@@ -107,13 +107,14 @@ if __name__ == "__main__":
     debug_enabled, probe_enabled = cli_parser()
 
     # Compiles arduino.ino code and uploads it to the board
+    """
     print("Starting Coprocessor...")
     try: 
         arduino_manager.run()
     except Exception as e:
         print(f"An error occurred during Arduino compilation or upload: {e}")
         exit(1)
-
+    """
     # Start network
     net = nx.NxNet()
 
@@ -122,11 +123,11 @@ if __name__ == "__main__":
                                         vThMant=1000,
                                         functionalState=2,
                                         compartmentVoltageDecay=256,
-                                        compartmentCurrentDecay=4096)
+                                        compartmentCurrentDecay=0)
 
     neurons = [create_neuron(net, prototype) for _ in range(NUM_NEURONS)]
 
-    input_conn_proto = nx.ConnectionPrototype(weight=255)
+    input_conn_proto = nx.ConnectionPrototype(weight=100)
     inputSynapseIds = create_input_layer(net, input_conn_proto, neurons)
     print("Logical Input Synapse IDs:", inputSynapseIds)
 
@@ -189,30 +190,42 @@ if __name__ == "__main__":
 
     
     board.start()
-    encoder_thr.start()
-    decoder_thr.start()
-    serial_thr.start()
+    #encoder_thr.start()
+    #decoder_thr.start()
+    #serial_thr.start()
     try:
+        neuronid = 0
+        board.run(25, aSync = True)
+        for i in range(25):
+            encoderChannel.write(1, [neuronid])
+            neuronid = 1 - neuronid
+            if(decoderChannel.probe()):
+                data = decoderChannel.read(1)
+                print(f"Neuron {data} fired")
+            time.sleep(0.5)
+        board.finishRun()
+
         # Run the board and the pipeline threads
-        board.run(NUM_STEP, aSync=True)
+        #board.run(NUM_STEP, aSync=True)
         #encoder_thr.start()
         #decoder_thr.start()
         #serial_thr.start()
 
        
         # Wait for the board to finish running
-        board.finishRun()
-        stop_event.set()
-        print("Run finished")
+        #board.finishRun()
+        #stop_event.set()
+        print("Program finished....")
     
     finally:
         #Stop the pipeline threads
-        encoder_thr.join()
-        decoder_thr.join()
-        serial_thr.join()
+        #encoder_thr.join()
+        #decoder_thr.join()
+        #serial_thr.join()
 
         board.disconnect()
 
         # Plot the probes
         if probe_enabled:
             plot_probes(u_probes, v_probes, s_probes)
+

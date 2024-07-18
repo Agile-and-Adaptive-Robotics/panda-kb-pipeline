@@ -26,10 +26,11 @@ int do_encoding(runState *s){
         printf("Error: Could not find encoder channel\n");
         return 0;
     }
-    if(probeChannel(channelId)){ //don't run if channel is empty
-        return 1;
+    while(!probeChannel(channelId)){
+        // Wait for the encoder channel to have data
+        //test to throttle pipeline
     }
-    return 0; 
+    return 1;
 }
 
 void run_encoding(runState *s){
@@ -39,7 +40,7 @@ void run_encoding(runState *s){
     //printf("Read channel axonId %d\n", axon); // Debugging
     uint16_t axonId = 1 << 14 | (axon & 0x3FFF);
     ChipId chipId = nx_nth_chipid(chip);
-    //printf("Sending spike at time : %d, axonId %d\n", time, axonId);
+    printf("Sending spike at time : %d, axonId %d\n", time, axonId);
 
     //send spike
     nx_send_remote_event(time, chipId, (CoreId){.id=4+core}, axonId);
