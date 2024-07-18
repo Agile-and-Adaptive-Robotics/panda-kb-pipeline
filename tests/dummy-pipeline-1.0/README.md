@@ -53,3 +53,88 @@ For Real-Time Applications:
  - Generally, high speed rates are considered to be 230400, 460800, and 921600 bps. 
 - UART is generally for point-to-point communication but it could be designed in software to support a sort of daisy chain configuration so that we can connect all four teensys on a single bus. The issue is that the LattePanda only has one UART port. 
 
+
+
+### Next steps and things to test: 
+**Conclusion**: The following conclusion needs more testing. The Loihi board runs much too fast when probes are disabled, so how can we slow this down so our pipeline is still useable. 
+1. Do Loihi Value reset after each run ? 
+ - Example: nxnet/tutorial-25 will be helpful for this...
+
+For my test I performed the simple loop and it was confirmed that the board does not reset after each run. See below: 
+```python
+#code 
+board.start()
+    #encoder_thr.start()
+    #decoder_thr.start()
+    #serial_thr.start()
+    try:
+        neuronid = 0
+        for i in range(10):
+            board.run(100, aSync = True)
+            for i in range (8):
+                encoderChannel.write(1, [neuronid])
+                neuronid = 1 - neuronid
+            while(decoderChannel.probe()):
+                data = decoderChannel.read(1)
+                #print(data)
+            board.finishRun()
+
+```
+![Alt text](images/discrete_board_runs_test.png)
+
+2. Can you throttle down the fpga by managing timesteps with SNIPs? 
+I tested this question with the below code. **IN conclusion** throttling or blocking the execution of the loihi can be done through busy waiting. 
+```python
+# in the python code
+try:
+        neuronid = 0
+        board.run(25, aSync = True)
+        for i in range(25):
+            encoderChannel.write(1, [neuronid])
+            neuronid = 1 - neuronid
+            if(decoderChannel.probe()):
+                data = decoderChannel.read(1)
+                print(f"Neuron {data} fired")
+            time.sleep(0.5)
+        board.finishRun()
+```
+```c
+//SNIP Code: 
+static int time= 0; // Global time variable
+static int chip = 0;
+static int core = 0; 
+static int axon;
+static int channelId = -1; // Encoder channel ID
+
+int do_encoding(runState *s){
+    if((s->time_step >= 0) & (channelId = -1)){
+        // Get the channel ID of the encoder
+        channelId = getChannelID("nxEncoder");
+    }
+    if(channelId == -1){
+        printf("Error: Could not find encoder channel\n");
+        return 0;
+    }
+    while(!probeChannel(channelId)){
+        // Wait for the encoder channel to have data
+        //test to throttle pipeline
+    }
+    return 1;
+}
+
+void run_encoding(runState *s){
+    //printf("Running spiking process\n"); // Debugging
+    time = s->time_step;
+    readChannel(channelId, &axon, 1);
+    //printf("Read channel axonId %d\n", axon); // Debugging
+    uint16_t axonId = 1 << 14 | (axon & 0x3FFF);
+    ChipId chipId = nx_nth_chipid(chip);
+    printf("Sending spike at time : %d, axonId %d\n", time, axonId);
+
+    //send spike
+    nx_send_remote_event(time, chipId, (CoreId){.id=4+core}, axonId);
+}
+
+```
+### Results 
+![Alt text](images/testing-throttle-of-loihi.png)
