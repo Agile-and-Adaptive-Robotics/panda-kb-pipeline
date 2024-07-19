@@ -33,9 +33,10 @@ void run_decoding(runState *s) {
             SPIKE_COUNT[(s->time_step-1)&3][0x20+ii] = 0;    // Lakemont spike counters need to be cleared after reading to prevent overflow 
         }
     }
-    if(time == 119){
+
+    if(time == 49){
         for(int ii = 0; ii < NEURON_COUNT; ii++){
-            printf("Total count %d, of neuron %d", output_spike_activity[ii], ii);
+            printf("Neuron %d spiked %d times\n", ii, output_spike_activity[ii]);
         }    
     }
 }

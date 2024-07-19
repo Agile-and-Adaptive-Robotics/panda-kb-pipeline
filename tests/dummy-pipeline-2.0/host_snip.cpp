@@ -87,7 +87,7 @@ public:
     virtual void run(uint32_t timestep) override {
         if(probeChannel(channel.c_str())){
             readChannel(channel.c_str(), &data, 1);
-            std::cout <<"Neuron spiked " << data <<std::endl; 
+            //std::cout <<"Neuron spiked " << data <<std::endl; 
         }
         //do nothing if channel is empty
     }

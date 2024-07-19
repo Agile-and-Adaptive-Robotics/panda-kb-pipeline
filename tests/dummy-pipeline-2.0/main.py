@@ -49,7 +49,7 @@ CHANNEL_BUFFER_SIZE = 32
 ENCODER_MSG_SIZE = 4
 DECODER_MSG_SIZE = 4
 
-NUM_STEP = 12
+NUM_STEP = 50
 NUM_NEURONS = 4
 
 def debug_logger(message, debug_enabled):
@@ -176,9 +176,8 @@ if __name__ == "__main__":
     board.start()
     
     try:
-        for i in range(10):
-            board.run(NUM_STEP, aSync=True)
-            board.finishRun()
+        board.run(NUM_STEP, aSync=True)
+        board.finishRun()
         print("Run finished")
     
     finally:
