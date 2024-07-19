@@ -23,12 +23,13 @@ import time
 import threading
 import queue
 import argparse
-from loihi_utils import *
 import arduino_manager
 from serial_comm import SerialDataPipeline
+from snn_utils import NeuralNetworkHelper
 
 from nxsdk.utils.plotutils import plotRaster
 from nxsdk.graph.channel import Channel
+from nxsdk.graph.monitor.probes import *
 import nxsdk.api.n2a as nx
 from nxsdk.arch.n2a.n2board import N2Board
 from nxsdk.graph.processes.phase_enums import Phase
@@ -48,8 +49,8 @@ CHANNEL_BUFFER_SIZE = 32
 ENCODER_MSG_SIZE = 4
 DECODER_MSG_SIZE = 4
 
-NUM_STEP = 1000
-NUM_NEURONS = 2
+NUM_STEP = 12
+NUM_NEURONS = 4
 
 def debug_logger(message, debug_enabled):
     if debug_enabled:
@@ -59,32 +60,6 @@ def debug_logger(message, debug_enabled):
 def error_logger(message):
     print(f"[ERROR] {message}")
 
-def encoder_thread(encoderChannel, stop_event, encoder_queue, debug_enabled):
-    while not stop_event.is_set():
-        if not encoder_queue.empty():
-            try:
-                data = encoder_queue.get(timeout = 0.01)
-                data_32bit = int.from_bytes(data, byteorder=ENDIANNESS, signed=False)
-                debug_logger(f"Data received from pipeline: {data_32bit}", debug_enabled)
-                if encoderChannel.probe():
-                    encoderChannel.write(1, [data_32bit])
-
-                else:
-                    if not stop_event.is_set():  
-                        error_logger(f"encoderChannel not ready for data....data missed!!!!")
-            except queue.Empty:
-                continue
-        time.sleep(0.001)
-
-def decoder_thread(decoderChannel, stop_event, decoder_queue, debug_enabled):
-    while not stop_event.is_set():
-        if decoderChannel.probe():
-            data = decoderChannel.read(1) 
-            low_8_bits = data[0] & 0xFF
-            debug_logger(f"Data received from Loihi: {low_8_bits}", debug_enabled)
-            decoder_queue.put(low_8_bits.to_bytes(1, byteorder=ENDIANNESS, signed=False))
-            debug_logger(f"Data send to peripheral...", debug_enabled)
-        time.sleep(0.001)
 
 def cli_parser():
     # Parse command-line arguments
@@ -105,7 +80,7 @@ def cli_parser():
 if __name__ == "__main__":
     
     debug_enabled, probe_enabled = cli_parser()
-
+    """
     # Compiles arduino.ino code and uploads it to the board
     print("Starting Coprocessor...")
     try: 
@@ -113,106 +88,101 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"An error occurred during Arduino compilation or upload: {e}")
         exit(1)
+    """
 
-    # Start network
     net = nx.NxNet()
+    # get network class
+    mySNN = NeuralNetworkHelper(net)
 
     prototype = nx.CompartmentPrototype(biasMant=0,
                                         biasExp=6,
-                                        vThMant=1000,
+                                        vThMant=500,
                                         functionalState=2,
                                         compartmentVoltageDecay=256,
                                         compartmentCurrentDecay=4096)
 
-    neurons = [create_neuron(net, prototype) for _ in range(NUM_NEURONS)]
+    neurons = [mySNN.create_neuron(prototype) for _ in range(NUM_NEURONS)]
 
     input_conn_proto = nx.ConnectionPrototype(weight=255)
-    inputSynapseIds = create_input_layer(net, input_conn_proto, neurons)
+
+    # Create input layer
+    inputSynapseIds = mySNN.create_input_layer(input_conn_proto, neurons[:2])  # Use two neurons for input
     print("Logical Input Synapse IDs:", inputSynapseIds)
 
-    outputSynapseIds = create_output_layer(net, neurons)
+    # Create output layer
+    outputSynapseIds = mySNN.create_output_layer(neurons[2:4])  # Use two neurons for output
     print("Logical Output Synapse IDs:", outputSynapseIds)
 
+
+    neurons[0].connect(neurons[2], prototype=input_conn_proto)
+    neurons[1].connect(neurons[3], prototype=input_conn_proto)
+
     #Track probes if command line argument is TRUE
+    #[IMPORTANT] Spike probe of some sort much be enabled for use of Spike Count register in embedded SNIPs 
     if probe_enabled:
         probe_parameters = [nx.ProbeParameter.COMPARTMENT_CURRENT,
                             nx.ProbeParameter.COMPARTMENT_VOLTAGE,
                             nx.ProbeParameter.SPIKE]
-        probes = create_probes(neurons, probe_parameters)
+        probes = mySNN.create_probes(neurons, probe_parameters)
         u_probes, v_probes, s_probes = zip(*probes)
-
+    else:
+        customSpikeProbeCond = SpikeProbeCondition(tStart=1000000000)
+        for neuron in neurons:
+            sProbe = neuron.probe(nx.ProbeParameter.SPIKE, customSpikeProbeCond)
 
     compiler = nx.N2Compiler()
     board = compiler.compile(net)
 
-    resource_maps = store_resource_maps(net, neurons, inputSynapseIds, outputSynapseIds)
-    print("Resource Maps:")
-    print(resource_maps)
+    mySNN.write_precomputed_axons_file(inputSynapseIds, outputSynapseIds)
 
-    encoderSnip = board.createSnip(phase=Phase.EMBEDDED_SPIKING,
+    cppFile = os.path.dirname(os.path.realpath(__file__)) +"/host_snip.cpp"
+
+    """SNIPs on Host"""
+    spikeInjector = board.createSnip(phase=Phase.HOST_PRE_EXECUTION,
+                                   cppFile=cppFile)
+    spikeReader = board.createSnip(phase=Phase.HOST_POST_EXECUTION,
+                                   cppFile=cppFile)
+    
+    """SNIPs on x86 Cores (embedded snips)"""
+    encoderEmbeddedProcess = board.createSnip(phase=Phase.EMBEDDED_SPIKING,
                                    includeDir=INCLUDE_DIR,
                                    cFilePath=INCLUDE_DIR + "encoder.c",
                                    funcName=ENCODER_FUNC_NAME,
                                    guardName=ENCODER_GUARD_NAME)
-
-    encoderChannel = board.createChannel(name=b'nxEncoder',
-                                         messageSize=ENCODER_MSG_SIZE,
-                                         numElements=CHANNEL_BUFFER_SIZE)
-    encoderChannel.connect(None, encoderSnip)
-
-    decoderSnip = board.createSnip(phase=Phase.EMBEDDED_MGMT,
+    
+    decoderEmbeddedProcess = board.createSnip(phase=Phase.EMBEDDED_MGMT,
                                    includeDir=INCLUDE_DIR,
                                    cFilePath=INCLUDE_DIR + "decoder.c",
                                    funcName=DECODER_FUNC_NAME,
                                    guardName=DECODER_GUARD_NAME)
 
+    """Create Channels"""
+    encoderChannel = board.createChannel(name=b'nxEncoder',
+                                         messageSize=ENCODER_MSG_SIZE,
+                                         numElements=CHANNEL_BUFFER_SIZE)
+    #Create input channel: host_process ----> loihi
+    encoderChannel.connect(spikeInjector, encoderEmbeddedProcess)
+
+    
+
     decoderChannel = board.createChannel(name=b'nxDecoder',
                                          messageSize=DECODER_MSG_SIZE,
                                          numElements=CHANNEL_BUFFER_SIZE)
-    decoderChannel.connect(decoderSnip, None)
+    #Create output channel: host_process <---- loihi
+    decoderChannel.connect(decoderEmbeddedProcess, spikeReader)
 
 
-    # Used to halt the pipeline processes
-    stop_event = threading.Event()
-    # Used for inter-thread communication between the pipeline processes
-    encoder_queue = queue.Queue()
-    decoder_queue = queue.Queue()
-
-    encoder_thr = threading.Thread(target=encoder_thread, 
-                                   args=(encoderChannel, stop_event, encoder_queue, debug_enabled))
-    
-    decoder_thr = threading.Thread(target=decoder_thread, 
-                                   args=(decoderChannel, stop_event, decoder_queue, debug_enabled))
-
-    serial_pipeline = SerialDataPipeline(USB_SERIAL_PORT, BAUD_RATE, stop_event, encoder_queue, decoder_queue, debug_enabled)
-    serial_thr = threading.Thread(target=serial_pipeline.run)
-
-    
+   
     board.start()
-    encoder_thr.start()
-    decoder_thr.start()
-    serial_thr.start()
+    
     try:
-        # Run the board and the pipeline threads
-        board.run(NUM_STEP, aSync=True)
-        #encoder_thr.start()
-        #decoder_thr.start()
-        #serial_thr.start()
-
-       
-        # Wait for the board to finish running
-        board.finishRun()
-        stop_event.set()
+        for i in range(10):
+            board.run(NUM_STEP, aSync=True)
+            board.finishRun()
         print("Run finished")
     
     finally:
-        #Stop the pipeline threads
-        encoder_thr.join()
-        decoder_thr.join()
-        serial_thr.join()
-
         board.disconnect()
-
         # Plot the probes
         if probe_enabled:
-            plot_probes(u_probes, v_probes, s_probes)
+            mySNN.plot_probes(u_probes, v_probes, s_probes)

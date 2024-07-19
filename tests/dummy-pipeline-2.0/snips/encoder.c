@@ -11,6 +11,7 @@
 #include "nxsdk.h"
 #include "encoder.h"
 
+
 static int time= 0; // Global time variable
 static int chip = 0;
 static int core = 0; 
@@ -43,4 +44,5 @@ void run_encoding(runState *s){
 
     //send spike
     nx_send_remote_event(time, chipId, (CoreId){.id=4+core}, axonId);
+
 }
