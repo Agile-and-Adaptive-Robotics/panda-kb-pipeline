@@ -5,4 +5,5 @@ tests/oscillator/SineWaveGenerator
 venv/
 oryx-build-commands.txt
 *__pycache__
+**/build/
 
