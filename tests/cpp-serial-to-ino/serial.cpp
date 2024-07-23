@@ -1,76 +1,57 @@
-//USB_SERIAL_PORT = '/dev/ttyACM0'
-
 #include <iostream>
 #include <libserial/SerialPort.h>
-#include <libserial/SerialStream.h>
-#include <Firmata.h>
+#include <thread>
+#include <chrono>
+#include <iomanip>
 
 #define USB_SERIAL_PORT "/dev/ttyACM0"
+#define BAUD_RATE 1000000
 
-using namespace LibSerial;
-
-// Define the serial port object
-SerialPort serial_port;
-
-// Define a Firmata object
-FirmataClass Firmata;
+LibSerial::SerialPort serial_port;
 
 void setup() {
-    // Open the serial port at 1 Mbps
+    // Open the serial port at the specified baud rate
     serial_port.Open(USB_SERIAL_PORT);
-    serial_port.SetBaudRate(BaudRate::BAUD_1000000);
-    serial_port.SetCharacterSize(CharacterSize::CHAR_SIZE_8);
-    serial_port.SetStopBits(StopBits::STOP_BITS_1);
-    serial_port.SetParity(Parity::PARITY_NONE);
-
-    // Initialize Firmata
-    Firmata.begin([&](uint8_t byte) { serial_port.WriteByte(byte); });
+    serial_port.SetBaudRate(LibSerial::BaudRate::BAUD_1000000);
+    serial_port.SetCharacterSize(LibSerial::CharacterSize::CHAR_SIZE_8);
+    serial_port.SetStopBits(LibSerial::StopBits::STOP_BITS_1);
+    serial_port.SetParity(LibSerial::Parity::PARITY_NONE);
 }
 
-void sendToPeripheral(const std::vector<uint8_t>& data) {
-    Firmata.startSysex();
-    Firmata.write(0x10); // Custom command
-    for (auto byte : data) {
-        Firmata.write(byte);
+void testCommunication() {
+    const uint8_t testData[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE};
+    const int testDataSize = sizeof(testData);
+
+    // Send test data
+    std::cout << "Sending data: ";
+    for (int i = 0; i < testDataSize; ++i) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)testData[i] << " ";
     }
-    Firmata.endSysex();
-}
+    std::cout << std::dec << std::endl;
+    serial_port.Write(testData, testDataSize);
 
-std::vector<uint8_t> readFromPeripheral() {
-    std::vector<uint8_t> data;
-    while (serial_port.IsDataAvailable()) {
-        uint8_t byte;
+    // Allow some time for the data to be sent and echoed back
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    // Read back the response
+    uint8_t receivedData[testDataSize] = {0};
+    int bytesRead = 0;
+    while (serial_port.IsDataAvailable() && bytesRead < testDataSize) {
+        char byte;
         serial_port.ReadByte(byte);
-        data.push_back(byte);
-    }
-    return data;
-}
-
-void loop() {
-    // Read from the serial port and process data with Firmata
-    if (serial_port.IsDataAvailable()) {
-        uint8_t byte;
-        serial_port.ReadByte(byte);
-        Firmata.processInput(byte);
+        receivedData[bytesRead++] = byte;
     }
 
-    // Example: Send data to the peripheral and read the response
-    sendToPeripheral({0x01, 0x02, 0x03});
-    std::vector<uint8_t> response = readFromPeripheral();
-    for (auto byte : response) {
-        std::cout << "Received: " << std::hex << static_cast<int>(byte) << std::endl;
+    std::cout << "Received data: ";
+    for (int i = 0; i < bytesRead; ++i) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)receivedData[i] << " ";
     }
+    std::cout << std::dec << std::endl;
 }
 
 int main() {
     setup();
-
-    while (true) {
-        loop();
-    }
-
-    // Close the serial port
+    testCommunication();
     serial_port.Close();
-
     return 0;
 }
