@@ -6,4 +6,4 @@ venv/
 oryx-build-commands.txt
 *__pycache__
 **/build/
-
+**/.vscode/

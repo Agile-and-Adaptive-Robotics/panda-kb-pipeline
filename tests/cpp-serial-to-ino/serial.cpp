@@ -7,7 +7,7 @@
 #include <iomanip> // for std::setw and std::setfill
 
 #define USB_SERIAL_PORT "/dev/ttyACM0"
-#define BAUD_RATE 57600
+#define BAUD_RATE 1000000
 
 LibSerial::SerialPort serial_port;
 
@@ -18,6 +18,7 @@ void setup() {
     serial_port.SetCharacterSize(LibSerial::CharacterSize::CHAR_SIZE_8);
     serial_port.SetStopBits(LibSerial::StopBits::STOP_BITS_1);
     serial_port.SetParity(LibSerial::Parity::PARITY_NONE);
+    serial_port.FlushIOBuffers();
 }
 
 void sendData(uint8_t data) {
@@ -26,18 +27,17 @@ void sendData(uint8_t data) {
     std::vector<uint8_t> dataBuffer = {data};
     serial_port.Write(dataBuffer);
 
-    // Allow some time for the data to be sent and echoed back
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    while(serial_port.IsDataAvailable() == false) {
+    }
 
     // Read back the response
     uint8_t receivedData;
-    if (serial_port.IsDataAvailable()) {
-        serial_port.ReadByte(receivedData);
-        std::cout<< "Received data raw: " << static_cast<unsigned int>(receivedData) << std::endl;
-        std::cout << "Received data: " << std::hex << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(receivedData) << std::dec << std::endl;
-    } else {
-        std::cerr << "No response received" << std::endl;
-    }
+    serial_port.ReadByte(receivedData);
+    std::cout<< "Received data raw: " << static_cast<unsigned int>(receivedData) << std::endl;
+    std::cout << "Received data: " << std::hex << std::setw(2) << std::setfill('0') << static_cast<unsigned int>(receivedData) << std::dec << std::endl;
+
+    std::cout << "Number of datas in buffer: " << serial_port.GetNumberOfBytesAvailable() << std::endl;
+    std::cout << std::endl; //blank line
 }
 
 void compileAndUpload() {
@@ -69,14 +69,14 @@ int main() {
     compileAndUpload();  // Compile and upload the Arduino sketch before starting serial communication
 
     setup();
-
+    
     // Fixed array of data to send
-    const uint8_t dataToSend[] = {1, 2, 3, 4, 5, 6, 7};  // Example data
+    const uint8_t dataToSend[] = {1, 2, 3, 4, 5, 6, 7, 8};  // Example data
     const size_t dataSize = sizeof(dataToSend) / sizeof(dataToSend[0]);
 
     for (size_t i = 0; i < dataSize; ++i) {
         sendData(dataToSend[i]);
-        std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for 1 second before sending the next byte
+        //std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     serial_port.Close();

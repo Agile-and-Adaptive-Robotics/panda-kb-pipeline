@@ -1,16 +1,8 @@
 #include <Arduino.h>
 // Communication with the peripheral: pins{0(Rx), 1(Tx)}
-#define BAUD_RATE 57600
+#define BAUD_RATE 1000000
 #define HOST_COM Serial
 #define DATA_PIPELINE_BUS Serial1
-
-//Fifo buffers
-#define BUFFER_SIZE 100
-byte read_buffer[BUFFER_SIZE];
-int read_head = 0;
-byte write_buffer[BUFFER_SIZE];
-int write_head = 0;
-
 
 void setup() {
   HOST_COM.begin(BAUD_RATE);
