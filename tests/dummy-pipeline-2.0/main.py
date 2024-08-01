@@ -26,6 +26,7 @@ import argparse
 import arduino_manager
 from serial_comm import SerialDataPipeline
 from snn_utils import NeuralNetworkHelper
+import subprocess
 
 from nxsdk.utils.plotutils import plotRaster
 from nxsdk.graph.channel import Channel
@@ -49,7 +50,7 @@ CHANNEL_BUFFER_SIZE = 32
 ENCODER_MSG_SIZE = 4
 DECODER_MSG_SIZE = 4
 
-NUM_STEP = 50
+NUM_STEP = 500
 NUM_NEURONS = 4
 
 def debug_logger(message, debug_enabled):
@@ -77,18 +78,29 @@ def cli_parser():
     return debug_enabled, probe_enabled
 
 
+def build_shared_libary() -> str:
+    """Build the host snip shared library"""
+    lib = os.path.dirname(os.path.realpath(__file__)) + \
+        "/build/libhost_snip.so" # FIXME: This is hardcoded for now 
+
+    # Compile the Host Snip to create the library after linking with ros libs
+    build_script = "{}/build.sh".format(
+        os.path.dirname(os.path.realpath(__file__)))
+    subprocess.run(
+        [build_script],
+        check=True,
+        shell=True,
+        executable="/bin/bash")
+
+    return lib
+
+
+
 if __name__ == "__main__":
     
     debug_enabled, probe_enabled = cli_parser()
-    """
-    # Compiles arduino.ino code and uploads it to the board
-    print("Starting Coprocessor...")
-    try: 
-        arduino_manager.run()
-    except Exception as e:
-        print(f"An error occurred during Arduino compilation or upload: {e}")
-        exit(1)
-    """
+    
+    shared_library_path = build_shared_libary() # Build the host snip shared library and arduino sketch
 
     net = nx.NxNet()
     # get network class
@@ -138,10 +150,13 @@ if __name__ == "__main__":
     cppFile = os.path.dirname(os.path.realpath(__file__)) +"/host_snip.cpp"
 
     """SNIPs on Host"""
-    spikeInjector = board.createSnip(phase=Phase.HOST_PRE_EXECUTION,
-                                   cppFile=cppFile)
-    spikeReader = board.createSnip(phase=Phase.HOST_POST_EXECUTION,
-                                   cppFile=cppFile)
+    spikeInjector = board.createSnip(
+        phase=Phase.HOST_PRE_EXECUTION,
+        library=shared_library_path)
+    
+    spikeReader = board.createSnip(
+        phase=Phase.HOST_POST_EXECUTION,
+        library=shared_library_path)
     
     """SNIPs on x86 Cores (embedded snips)"""
     encoderEmbeddedProcess = board.createSnip(phase=Phase.EMBEDDED_SPIKING,
@@ -171,8 +186,6 @@ if __name__ == "__main__":
     #Create output channel: host_process <---- loihi
     decoderChannel.connect(decoderEmbeddedProcess, spikeReader)
 
-
-   
     board.start()
     
     try:
