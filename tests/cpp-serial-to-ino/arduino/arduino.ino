@@ -4,14 +4,6 @@
 #define HOST_COM Serial
 #define DATA_PIPELINE_BUS Serial1
 
-//Fifo buffers
-#define BUFFER_SIZE 100
-byte read_buffer[BUFFER_SIZE];
-int read_head = 0;
-byte write_buffer[BUFFER_SIZE];
-int write_head = 0;
-
-
 void setup() {
   HOST_COM.begin(BAUD_RATE);
   DATA_PIPELINE_BUS.begin(BAUD_RATE);
