@@ -20,6 +20,7 @@ set_target_properties(host_snip PROPERTIES
 
 # Include directories
 target_include_directories(host_snip
+    PUBLIC ${PROJECT_SOURCE_DIR}/include
     PUBLIC ${PROJECT_SOURCE_DIR}/build/includes/nxsdk/include
     PUBLIC ${LIBSERIAL_INCLUDE_DIRS}
 )

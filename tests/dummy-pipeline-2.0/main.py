@@ -1,30 +1,26 @@
 """
 @Brief: This is a dummy pipeline that demonstrates the communication between the Loihi board and the Teensy board.
-        The Teensy board is running an oscillator process (/teensy/oscillator.cpp) that emulates a cpg type of biofeedback.
+        The Teensy board is running an oscillator process (/teensy/oscillator.cpp) that emulates a CPG type of biofeedback.
         Spikes from the oscillator are generated to create a spike train which are sent through the pipeline to the Loihi Network. 
 
 @Notes: 
-    - The pipeline consists of three threads: encoder, decoder, and serial.
-    - The encoder thread reads data from the encoder queue and sends it to the Loihi board.
-    - The decoder thread reads data from the Loihi board and sends it to the decoder queue.
-    - The serial thread reads data from the onboard coprocessor (Arduino Leonardo) and sends it to the decoder queue.
-        - The pipeline is managed and compiled by the arduino_manager module.
-        - See documentation on Arduion CLI for more context - https://arduino.github.io/arduino-cli/0.34/installation/
+
+    - The code demonstrates the use of an axon file which can then be read from the host snips
+    - Probes and debugging can be enabled/disabled via command line arguments, see cli_parser() for more information
+    - The pipeline uses a simple 4 neuron network with 2 input and 2 output neurons
+    - [IMPORTANT] Spike probe of some sort much be enabled for use of Spike Count register in embedded SNIPs
+    - [IMPORTANT] The pipeline uses a shared library to communicate with the host snips, this is built using the build.sh script
+    - [IMPORTANT] HOST SNIPs are used due to lower latency but note that SuperHost to Host communication is NOT supported. See NxSDK documentation for more information
 
 @Options: When running the python script there are two options by default debugging and probes are disabled
           to enable both run `python main.py --debug --probe
           --debug [Enables debug logger]
-          --probe [Enables probe collection on Loihi]
+          --probe [Enables probe collection on Loihi
 
 @Author: Reece Wayt        
 """
 import os
-import time
-import threading
-import queue
 import argparse
-import arduino_manager
-from serial_comm import SerialDataPipeline
 from snn_utils import NeuralNetworkHelper
 import subprocess
 
@@ -36,10 +32,6 @@ from nxsdk.arch.n2a.n2board import N2Board
 from nxsdk.graph.processes.phase_enums import Phase
 
 """CONSTANTS"""
-USB_SERIAL_PORT = '/dev/ttyACM0'  # Device driver for the USB serial port to Arduino Coprocessor
-BAUD_RATE = 1000000
-ENDIANNESS = 'little'
-
 INCLUDE_DIR = os.path.join(os.getcwd(), 'snips/')
 ENCODER_FUNC_NAME = "run_encoding"
 ENCODER_GUARD_NAME = "do_encoding"
