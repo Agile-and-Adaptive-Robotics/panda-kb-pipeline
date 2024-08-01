@@ -5,8 +5,15 @@
 #define HOST_COM Serial            // For debugging, and comms with host PC
 
 #define BUFFER_SIZE 100
+#define MAX_BYTES 100
 byte read_buffer[BUFFER_SIZE];
 byte write_buffer[BUFFER_SIZE];
+
+// Measuring throughput
+bool start = false; 
+unsigned long duration = 10000; // Ten seconds
+unsigned long start_time = 0; 
+unsigned long total_bytes = 0; 
 
 void setup() {
   HOST_COM.begin(BAUD_RATE);
@@ -16,21 +23,31 @@ void setup() {
   DATA_PIPELINE_BUS.addMemoryForRead(read_buffer, BUFFER_SIZE);
   DATA_PIPELINE_BUS.addMemoryForWrite(write_buffer, BUFFER_SIZE);
 
-  HOST_COM.println("Teensy setup complete. Waiting for data...");
+  HOST_COM.println("Teensy setup complete. Waiting for data..."); 
+  while(DATA_PIPELINE_BUS.available() == 0){
+    //busy wait for start
+  }
+  start = true;
+  start_time = micros(); 
+
 }
 
 void loop() {
   // Read from DATA_PIPELINE_BUS and echo back
-  while (DATA_PIPELINE_BUS.available()) {
+  if(DATA_PIPELINE_BUS.available()) {
     byte data = DATA_PIPELINE_BUS.read();
     DATA_PIPELINE_BUS.write(data);  // Echo back to the data pipeline
-    HOST_COM.write(data);           // Send to host for debugging
+    if(start) {
+      total_bytes += 1; 
+    }
+    //HOST_COM.printf("Received this data: %d\n", data);
   }
 
-  // Check for incoming data from the host and echo back
-  while (HOST_COM.available()) {
-    byte data = HOST_COM.read();
-    DATA_PIPELINE_BUS.write(data);  // Send to data pipeline
-    HOST_COM.write(data);           // Echo back to the host
+  if(total_bytes >= MAX_BYTES && start){ //sample size reached process throughput
+    start = false; 
+    unsigned long end_time = micros(); 
+    double total_duration = (end_time - start_time) / 1e6; // Correct the conversion to seconds
+    double throughput = total_bytes / total_duration; 
+    HOST_COM.printf("Total throughput = %ld bytes per second \n", (long)throughput);
   }
 }
