@@ -1,31 +1,28 @@
 """
 @Brief: This is a dummy pipeline that demonstrates the communication between the Loihi board and the Teensy board.
-        The Teensy board is running an oscillator process (/teensy/oscillator.cpp) that emulates a cpg type of biofeedback.
+        The Teensy board is running an oscillator process (/teensy/oscillator.cpp) that emulates a CPG type of biofeedback.
         Spikes from the oscillator are generated to create a spike train which are sent through the pipeline to the Loihi Network. 
 
 @Notes: 
-    - The pipeline consists of three threads: encoder, decoder, and serial.
-    - The encoder thread reads data from the encoder queue and sends it to the Loihi board.
-    - The decoder thread reads data from the Loihi board and sends it to the decoder queue.
-    - The serial thread reads data from the onboard coprocessor (Arduino Leonardo) and sends it to the decoder queue.
-        - The pipeline is managed and compiled by the arduino_manager module.
-        - See documentation on Arduion CLI for more context - https://arduino.github.io/arduino-cli/0.34/installation/
+
+    - The code demonstrates the use of an axon file which can then be read from the host snips
+    - Probes and debugging can be enabled/disabled via command line arguments, see cli_parser() for more information
+    - The pipeline uses a simple 4 neuron network with 2 input and 2 output neurons
+    - [IMPORTANT] Spike probe of some sort much be enabled for use of Spike Count register in embedded SNIPs
+    - [IMPORTANT] The pipeline uses a shared library to communicate with the host snips, this is built using the build.sh script
+    - [IMPORTANT] HOST SNIPs are used due to lower latency but note that SuperHost to Host communication is NOT supported. See NxSDK documentation for more information
 
 @Options: When running the python script there are two options by default debugging and probes are disabled
           to enable both run `python main.py --debug --probe
           --debug [Enables debug logger]
-          --probe [Enables probe collection on Loihi]
+          --probe [Enables probe collection on Loihi
 
 @Author: Reece Wayt        
 """
 import os
-import time
-import threading
-import queue
 import argparse
-import arduino_manager
-from serial_comm import SerialDataPipeline
 from snn_utils import NeuralNetworkHelper
+import subprocess
 
 from nxsdk.utils.plotutils import plotRaster
 from nxsdk.graph.channel import Channel
@@ -35,10 +32,6 @@ from nxsdk.arch.n2a.n2board import N2Board
 from nxsdk.graph.processes.phase_enums import Phase
 
 """CONSTANTS"""
-USB_SERIAL_PORT = '/dev/ttyACM0'  # Device driver for the USB serial port to Arduino Coprocessor
-BAUD_RATE = 1000000
-ENDIANNESS = 'little'
-
 INCLUDE_DIR = os.path.join(os.getcwd(), 'snips/')
 ENCODER_FUNC_NAME = "run_encoding"
 ENCODER_GUARD_NAME = "do_encoding"
@@ -49,7 +42,7 @@ CHANNEL_BUFFER_SIZE = 32
 ENCODER_MSG_SIZE = 4
 DECODER_MSG_SIZE = 4
 
-NUM_STEP = 50
+NUM_STEP = 500
 NUM_NEURONS = 4
 
 def debug_logger(message, debug_enabled):
@@ -77,18 +70,29 @@ def cli_parser():
     return debug_enabled, probe_enabled
 
 
+def build_shared_libary() -> str:
+    """Build the host snip shared library"""
+    lib = os.path.dirname(os.path.realpath(__file__)) + \
+        "/build/libhost_snip.so" # FIXME: This is hardcoded for now 
+
+    # Compile the Host Snip to create the library after linking with ros libs
+    build_script = "{}/build.sh".format(
+        os.path.dirname(os.path.realpath(__file__)))
+    subprocess.run(
+        [build_script],
+        check=True,
+        shell=True,
+        executable="/bin/bash")
+
+    return lib
+
+
+
 if __name__ == "__main__":
     
     debug_enabled, probe_enabled = cli_parser()
-    """
-    # Compiles arduino.ino code and uploads it to the board
-    print("Starting Coprocessor...")
-    try: 
-        arduino_manager.run()
-    except Exception as e:
-        print(f"An error occurred during Arduino compilation or upload: {e}")
-        exit(1)
-    """
+    
+    shared_library_path = build_shared_libary() # Build the host snip shared library and arduino sketch
 
     net = nx.NxNet()
     # get network class
@@ -138,10 +142,13 @@ if __name__ == "__main__":
     cppFile = os.path.dirname(os.path.realpath(__file__)) +"/host_snip.cpp"
 
     """SNIPs on Host"""
-    spikeInjector = board.createSnip(phase=Phase.HOST_PRE_EXECUTION,
-                                   cppFile=cppFile)
-    spikeReader = board.createSnip(phase=Phase.HOST_POST_EXECUTION,
-                                   cppFile=cppFile)
+    spikeInjector = board.createSnip(
+        phase=Phase.HOST_PRE_EXECUTION,
+        library=shared_library_path)
+    
+    spikeReader = board.createSnip(
+        phase=Phase.HOST_POST_EXECUTION,
+        library=shared_library_path)
     
     """SNIPs on x86 Cores (embedded snips)"""
     encoderEmbeddedProcess = board.createSnip(phase=Phase.EMBEDDED_SPIKING,
@@ -171,8 +178,6 @@ if __name__ == "__main__":
     #Create output channel: host_process <---- loihi
     decoderChannel.connect(decoderEmbeddedProcess, spikeReader)
 
-
-   
     board.start()
     
     try:
