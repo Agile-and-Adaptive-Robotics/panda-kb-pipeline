@@ -26,18 +26,17 @@ Alternatively run the `start-kb.sh` script:
 ./start-kb.sh
 ```
 
-### Project directory: FIXME: 
-```bash
-project/
-├── include/
-│   ├── MyClass.h
-│   └── AnotherClass.h
-├── src/
-│   ├── MyClass.cpp
-│   └── AnotherClass.cpp
-└── main.cpp
+### Project directory: 
+| Folder/File    | Description  |  
+|---------------|---------------|  
+| `latte-panda-setup/`  | Contains setup instructions of the LattePanda and KB  |  
+| `tutorials/`  | Contains various notes and code bases for simple applications of the KB and LattePanda |
+| `totorials/cpp-serial-to-ino `   | Simple code exploring the functionality of the c++ library LibSerial  |
+| `tutorials/dummy-pipeline-1.0` |  The purpose of this code base was to test and get familiar with NxSDK Snip functionality  |
+| `tutorials/dummy-pipeline-2.0`| |
+| `tutorials/led-blink` |  |
+| `oscillator` | | 
 
-```
 
 ### Neural Encodings: 
 There are three basic types of encoding algorithms: 
