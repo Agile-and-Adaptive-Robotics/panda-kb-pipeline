@@ -5,65 +5,32 @@ import nxsdk.api.n2a as nx
 from nxsdk.arch.n2a.n2board import N2Board
 from nxsdk.graph.processes.phase_enums import Phase
 
+from bursting_neuron import BurstingNeuron
+
 import numpy as np
 import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-haveDisplay = "DISPLAY" in os.environ
-if not haveDisplay:
-    mpl.use('Agg')
-
-def plot_probes(u_probes, v_probes, s_probes, compartment_names):
-        fig = plt.figure(2002, figsize=(35, 25))
-        k = 1
-        for i in range(len(u_probes)):
-            plt.subplot(len(u_probes), 3, k)
-            u_probes[i].plot()
-            plt.title(f'{compartment_names[i]} Current')
-            k += 1
-
-            plt.subplot(len(v_probes), 3, k)
-            v_probes[i].plot()
-            plt.title(f'{compartment_names[i]} Voltage')
-            k += 1
-
-            plt.subplot(len(s_probes), 3, k)
-            s_probes[i].plot()
-            plt.title(f'{compartment_names[i]} Spikes')
-            k += 1
-
-        plt.tight_layout(pad=3.0, w_pad=3.0, h_pad=3.0)
-        if haveDisplay:
-            plt.show()
-        else:
-            fileName = "probes_plot.png"
-            print(f"No display available. Saving plot to {fileName}")
-            fig.savefig(fileName)
-
-
-srVthMant = 100
-srCurrentDecay = 800
-srVoltageDecay = 800
-amVthMant = 1562
-amCurrentDecay = 400
-amVoltageDecay = 400
-ciVthMant = 100
-ciCurrentDecay = int(1 / 10 * 2 ** 12)
-ciVoltageDecay = int(1 / 100 * 2 ** 12)
-sgVthMant = 5000
-sgCurrentDecay = int(1 / 10 * 2 ** 12)
-sgVoltageDecay = int(1 / 100 * 2 ** 12)
-inVthMant = 10000
-inCurrentDecay = 0
-inVoltageDecay = 0
-
+"""Global Params"""
+NUMSTEPS = 200
 
 if __name__ == "__main__":
 
     net = nx.NxNet()
     # get network class
 
+    burst_neuron1 = BurstingNeuron(net, debug=False, num_steps=NUMSTEPS)
+
+    burst_neuron1.add_spike_train()
+
+    net.run(NUMSTEPS)
+    net.disconnect()
+
+    burst_neuron1.plot_probes()
+
+
+    """
     # Input Compartment -> transforms input current to voltage (Non-spiking)
     spike_receiver_pt = nx.CompartmentPrototype(
         vThMant=srVthMant,
@@ -149,3 +116,4 @@ if __name__ == "__main__":
     net.disconnect()
 
     plot_probes(u_probes, v_probes, s_probes, compartment_names)
+    """
