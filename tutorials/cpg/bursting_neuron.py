@@ -177,7 +177,7 @@ class BurstingNeuron:
         #TODO: Implement this function
 
     def plot_probes(self):
-        fig = plt.figure(2002, figsize=(50, 30))
+        fig = plt.figure(2002, figsize=(20, 15))
         k = 1
         for comp_name, probes in self.probes.items():
             for probe_type, probe in probes.items():
@@ -185,10 +185,10 @@ class BurstingNeuron:
                     print(f"Plotting {comp_name} {probe_type}, of {probe}, {probe_type}")
                 plt.subplot(len(self.probes), 3, k)
                 probe.plot()
-                plt.title(f'{comp_name.capitalize()} {probe_type.capitalize()}')
+                plt.title(f'{comp_name.capitalize()} {probe_type.capitalize()}', fontsize=15)
                 k += 1
 
-        plt.tight_layout(pad=5.0, w_pad=5.0, h_pad=5.0)
+        plt.tight_layout(pad=4.0, w_pad=4.0, h_pad=4.0)
 
         # Save the plot if no display is available
         if haveDisplay:
