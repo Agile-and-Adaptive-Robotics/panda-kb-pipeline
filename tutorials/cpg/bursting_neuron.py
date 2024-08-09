@@ -1,36 +1,46 @@
 import os
 import atexit
-import matplotlib.pyplot as plt
 import matplotlib as mpl
+# Choose an interactive backend, like TkAgg or Qt5Agg
+mpl.use('TkAgg')  # or 'TkAgg'
+import matplotlib.pyplot as plt
 from nxsdk.utils.plotutils import plotRaster
 import nxsdk.api.n2a as nx
 from enum import Enum, auto
 import numpy as np 
 
 haveDisplay = "DISPLAY" in os.environ
-if not haveDisplay:
-    mpl.use('Agg')
+
 
 class BurstingNeuron:
+    """
+    Defines a multi-compartment bursting neuron model with the following compartments:
+        sr: Spike Receiver
+        am: Astrocyte Modulator
+        ci: Conditional Integrator
+        sg: Spiking Compartment
+        in: Inhibitor Compartment    
+    See NxSDK documentation for more information on multi-compartment neuron models.    
+    """
     def __init__(self,
                  net: nx.NxNet,
                  srVthMant=100,
-                 srCurrentDecay=int(1 / 10 * 2 ** 12),
+                 srCurrentDecay=4096,
                  srVoltageDecay=int(1 / 4 * 2 ** 12),
                  amVthMant=100,
-                 amCurrentDecay=int(1 / 10 * 2 ** 12),
+                 amCurrentDecay=int(1 / 100 * 2 ** 12),
                  amVoltageDecay=int(1 / 4 * 2 ** 12),
-                 ciVthMant=5000,
-                 ciCurrentDecay=int(1 / 10 * 2 ** 12),
+                 ciVthMant=100,
+                 ciCurrentDecay=4096,
                  ciVoltageDecay=int(1 / 100 * 2 ** 12),
-                 sgVthMant=5000,
-                 sgCurrentDecay=int(1 / 10 * 2 ** 12),
+                 sgVthMant=100,
+                 sgCurrentDecay=4096,
                  sgVoltageDecay=int(1 / 100 * 2 ** 12),
-                 inVthMant=5000,
-                 inCurrentDecay=0,
+                 inVthMant=100,
+                 inCurrentDecay=4096,
                  inVoltageDecay=0,
-                 s_2_in_weight=200,
-                 in_2_ci_weight=-200,
+                 s_2_in_weight=5,
+                 in_2_sr_weight=-200,
                  totalCompartments=5,
                  do_probes=True,
                  debug=False,
@@ -53,7 +63,7 @@ class BurstingNeuron:
         self.inCurrentDecay = inCurrentDecay
         self.inVoltageDecay = inVoltageDecay
         self.s_2_in_weight = s_2_in_weight
-        self.in_2_ci_weight = in_2_ci_weight
+        self.in_2_sr_weight = in_2_sr_weight
         self.totalCompartments = totalCompartments
         self.debug = debug
         self.num_steps = num_steps
@@ -88,7 +98,7 @@ class BurstingNeuron:
             thresholdBehavior=nx.COMPARTMENT_THRESHOLD_MODE.NO_SPIKE_AND_PASS_V_LG_VTH_TO_PARENT,
             functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE
         )
-        # Conditional Integrator -> integrates the voltage from sr only if AM's threshold is met (Non-spiking)
+        # Conditional Integrator -> integrates the voltage from spike receiver only if AM's threshold is met (Non-spiking)
         conditional_integrator_pt = nx.CompartmentPrototype(
             vThMant=self.ciVthMant,
             compartmentVoltageDecay=self.ciVoltageDecay,
@@ -129,9 +139,9 @@ class BurstingNeuron:
         neuron.soma.connect(inhibitor_cx, prototype=s_2_in_pt)
 
         # Connect back to inhibitor compartment to reset conditional integrator
-        in_2_ci_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY,
-                                            weight=self.in_2_ci_weight)
-        inhibitor_cx.connect(neuron.dendrites[0], prototype=in_2_ci_pt)
+        in_2_sr_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY,
+                                            weight=self.in_2_sr_weight)
+        inhibitor_cx.connect(neuron.dendrites[0].dendrites[1], prototype=in_2_sr_pt)
 
         # Return dictionary of compartments
         return {
@@ -167,7 +177,7 @@ class BurstingNeuron:
         #TODO: Implement this function
 
     def plot_probes(self):
-        fig = plt.figure(2002, figsize=(35, 25))
+        fig = plt.figure(2002, figsize=(50, 30))
         k = 1
         for comp_name, probes in self.probes.items():
             for probe_type, probe in probes.items():
@@ -178,7 +188,7 @@ class BurstingNeuron:
                 plt.title(f'{comp_name.capitalize()} {probe_type.capitalize()}')
                 k += 1
 
-        plt.tight_layout(pad=3.0, w_pad=4.0, h_pad=4.0)
+        plt.tight_layout(pad=5.0, w_pad=5.0, h_pad=5.0)
 
         # Save the plot if no display is available
         if haveDisplay:
