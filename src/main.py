@@ -11,27 +11,23 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+
 # Add the ../lib directory to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib')))
-from cpg.cpg import SodiumChannel
-
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+from lib import HalfCenter
 
 """Global Params"""
-NUMSTEPS = 200
+NUMSTEPS = 100
 
 if __name__ == "__main__":
 
     net = nx.NxNet()
-    # get network class
-
-    NaChannel1 = SodiumChannel(net)
-    NaChannel1.inhibit_gate()
+    my_HC = HalfCenter(net, debug=True)
 
     net.run(NUMSTEPS)
     net.disconnect()
 
-    NaChannel1.plot_probes()
+    my_HC.plot_all_probes()
 
 
     ######################END#########################

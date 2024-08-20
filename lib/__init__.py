@@ -1,5 +1,5 @@
 ###Export control
-from .cpg import CentralPatternGenerator
+from .cpg.cpg import HalfCenter
 
 # Define what is accessible when importing from cpg
-__all__ = ['CentralPatternGenerator']
+__all__ = ['HalfCenter']
