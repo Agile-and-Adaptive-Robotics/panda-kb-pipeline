@@ -14,7 +14,7 @@ import matplotlib as mpl
 
 # Add the ../lib directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
-from lib import HalfCenter
+from lib import CentralPatternGenerator
 
 """Global Params"""
 NUMSTEPS = 100
@@ -22,12 +22,14 @@ NUMSTEPS = 100
 if __name__ == "__main__":
 
     net = nx.NxNet()
-    my_HC = HalfCenter(net, debug=True)
+    my_cpg = CentralPatternGenerator(net)
+    my_cpg.stimulate_interneuron()
 
     net.run(NUMSTEPS)
     net.disconnect()
 
-    my_HC.plot_all_probes()
+    my_cpg.plot_all_probes()
+    my_cpg.plot_half_center_together()
 
 
     ######################END#########################
