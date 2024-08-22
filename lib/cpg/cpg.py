@@ -39,12 +39,12 @@ class hcCxType(Enum):
     SodiumChannel = 2
     ActivationGate = 3
     SodiumIon = 4
-    ActGateInhibitor = 5 
     #Add more as needed
 
 class cpgCxType(Enum):
     ExtensionInterneuron = 0 
     FlexionInterneuron = 1
+    SwitchGate = 2
 
 
 class CentralPatternGenerator:
@@ -61,8 +61,11 @@ class CentralPatternGenerator:
         self.intIntVth = 10
         self.intIntVoltageDecay = int(1 / 10 * 2 ** 12)
 
+        self.switchGateVth = 10
+        self.switchGateVoltageDecay = int(1 / 10 * 2 ** 12)
 
-        self.ExtHC = HalfCenter(self.net)
+
+        self.ExtHC = HalfCenter(self.net, extensor=True)
         self.FlexHC = HalfCenter(self.net)
 
         self.compartments = [None] * len(cpgCxType)  
@@ -85,7 +88,7 @@ class CentralPatternGenerator:
         self.compartments[cpgCxType.FlexionInterneuron.value] = IntNeuronGrp[1]
 
         excitatory_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight=15)
-        halfcenter_link_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY, weight=-30)
+        halfcenter_link_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY, weight=-15)
 
         self.ExtHC.spikegen_cx.connect(self.ExtensionInterneuron, excitatory_conn_pt)
         self.ExtensionInterneuron.connect(self.FlexHC.halfcenter_cx, halfcenter_link_conn_pt)
@@ -93,6 +96,22 @@ class CentralPatternGenerator:
         self.FlexHC.spikegen_cx.connect(self.FlexionInterneuron, excitatory_conn_pt)
         self.FlexionInterneuron.connect(self.ExtHC.halfcenter_cx, halfcenter_link_conn_pt)
 
+        SwitchGate_pt = nx.CompartmentPrototype(
+            vThMant= self.switchGateVth,
+            compartmentVoltageDecay=self.switchGateVoltageDecay,
+            functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE
+        )
+
+        self.compartments[cpgCxType.SwitchGate.value] = self.net.createCompartment(SwitchGate_pt)
+        switchGate_excitatory_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight=15)
+        switchGate_inhibitory_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY, weight=-15)
+
+        self.ExtHC.spikegen_cx.connect(self.SwitchGate, switchGate_excitatory_conn_pt)
+        self.SwitchGate.connect(self.ExtHC.activationGate, switchGate_inhibitory_conn_pt)
+        self.SwitchGate.connect(self.FlexHC.activationGate, switchGate_excitatory_conn_pt)
+
+          
+        
     def __create_probes(self):
         params = [nx.ProbeParameter.COMPARTMENT_CURRENT, 
                 nx.ProbeParameter.COMPARTMENT_VOLTAGE, 
@@ -140,7 +159,7 @@ class CentralPatternGenerator:
         """
         if side == 'extension':
             nxSpikeGen = self.net.createSpikeGenProcess(numPorts=1)
-            sGenConn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight = 150)
+            sGenConn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight = 15)
             nxSpikeGen.connect(self.ExtensionInterneuron, prototype=sGenConn_pt)
             nxSpikeGen.addSpikes([0], [[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]])
         else:
@@ -153,6 +172,10 @@ class CentralPatternGenerator:
     @property
     def FlexionInterneuron(self):
         return self.compartments[cpgCxType.FlexionInterneuron.value]
+    
+    @property
+    def SwitchGate(self):
+        return self.compartments[cpgCxType.SwitchGate.value]
 
 
 ##################################################################################################################
@@ -171,7 +194,8 @@ class HalfCenter:
     """
     def __init__(self,
                  net : nx.NxNet,
-                 debug = False
+                 debug = False,
+                 extensor = False
                  ):
         self.net = net
         self.debug = debug
@@ -187,7 +211,7 @@ class HalfCenter:
         Main compartment of the half center oscillator as seen in the paper: 
          - "Design process and tools for dynamic neuromechanical models and robot controllers"
         """
-        self.HCVthMant = 10
+        self.HCVthMant = 7
         self.HCBias = int((self.HCVthMant * 2 ** 6) - 100)
         self.HCCurrentDecay = 4096
         self.HCVoltageDecay = int(1 / 3 * 2 ** 12)
@@ -196,23 +220,31 @@ class HalfCenter:
         Used to model a persistent sodium channel, sodium Ions are added to the 
         half center compartment when the activation gate is open. 
         """
-        self.SCVthMant = 10
+        self.SCVthMant = 7
         self.SCVoltageDecay = int(1 / 1 * 2 ** 12)
         self.SCCurrentDecay = 4096
         """
         Activation Gate (ActGate):
         Basic compartment that allows for the opening and closing of the sodium channel
         """
-        self.ActGateVthMant = 10
-        self.ActGateBias = int((self.ActGateVthMant * 2 ** 6) + 1)
-        self.ActGateCurrentDecay = 4096
-        self.ActGateVoltageDecay = int(1 / 2 * 2 ** 12)
+        self.extensor = extensor
+        self.ActGateVthMant = 7
+        if extensor == True: 
+            self.ActGateBias = int((self.ActGateVthMant / 2) * 2 **6)
+            self.ActGateCurrentDecay = 4096
+            self.ActGateVoltageDecay = int(1 / 100 * 2 ** 12)
+
+        else:
+            self.ActGateBias = 0
+            self.ActGateCurrentDecay = 4096
+            self.ActGateVoltageDecay = int(1 / 3 * 2 ** 12)
+
         """
         Sodium Ion (NaIon):
         Used to model the sodium ions that are responsible for the depolarization of the half center compartment
         V_Na+ = NaIonVthMant * 2 ^ 6
         """
-        self.NaIonVthMant = 10
+        self.NaIonVthMant = 7
         self.NaIonBias = int(self.NaIonVthMant * 2 ** 6)
         self.NaIonVoltageDecay = int(1 / 1 * 2 ** 12)
         self.NaIonCurrentDecay = 4096
@@ -222,7 +254,7 @@ class HalfCenter:
         this compartment is necessary, as the binary tree structure of the neuron model does not allow for
         direct connections between the activation gate and the sodium channel
         """
-        self.InhActGateVthMant = 10
+        self.InhActGateVthMant = 7
         self.InhActGateVoltageDecay = int(1 / 10 * 2 ** 12)
 
         """
@@ -283,18 +315,6 @@ class HalfCenter:
         neuronPrototype = nx.NeuronPrototype(SpikeGenerator_pt)
         HalfCenterTree = self.net.createNeuron(neuronPrototype)
 
-        InhActGate_pt = nx.CompartmentPrototype(
-            vThMant= self.InhActGateVthMant,
-            compartmentVoltageDecay=self.InhActGateVoltageDecay,
-            functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE
-        )
-        InhActGateCx = self.net.createCompartment(InhActGate_pt)
-        
-        SG_2_InhAct_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight=15)
-        HalfCenterTree.soma.connect(InhActGateCx, SG_2_InhAct_conn_pt)
-
-        InhAct_2_SodiumGate_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY, weight=-15)
-        InhActGateCx.connect(HalfCenterTree.dendrites[0].dendrites[0].dendrites[0], InhAct_2_SodiumGate_conn_pt)
 
         
         # Store compartments in the list using the enum values as indices
@@ -303,7 +323,7 @@ class HalfCenter:
         self.compartments[hcCxType.SodiumChannel.value] = HalfCenterTree.dendrites[0].dendrites[0]
         self.compartments[hcCxType.ActivationGate.value] = HalfCenterTree.dendrites[0].dendrites[0].dendrites[0]
         self.compartments[hcCxType.SodiumIon.value] = HalfCenterTree.dendrites[0].dendrites[0].dendrites[1]
-        self.compartments[hcCxType.ActGateInhibitor.value] = InhActGateCx
+
         
 
     def __create_probes(self):
@@ -346,7 +366,13 @@ class HalfCenter:
         return self.compartments[hcCxType.SpikeGenerator.value]
     
     @property
+    def activationGate(self):
+        return self.compartments[hcCxType.ActivationGate.value]
+    
+    @property
     def halfcenter_volt_probe(self):
         return self.probes[hcCxType.HalfCenter.value][ProbeType.VOLTAGE]
+    
+    
 
     
