@@ -154,6 +154,10 @@ class CentralPatternGenerator:
     def FlexionInterneuron(self):
         return self.compartments[cpgCxType.FlexionInterneuron.value]
 
+
+##################################################################################################################
+################################CLASS DEFINITION#################################################################
+
 class HalfCenter:
     """
     Uses Loihi's multi-compartment neuron model to create a half center oscillator with the following compartments:
@@ -183,7 +187,8 @@ class HalfCenter:
         Main compartment of the half center oscillator as seen in the paper: 
          - "Design process and tools for dynamic neuromechanical models and robot controllers"
         """
-        self.HCVthMant = 9
+        self.HCVthMant = 10
+        self.HCBias = int((self.HCVthMant * 2 ** 6) - 100)
         self.HCCurrentDecay = 4096
         self.HCVoltageDecay = int(1 / 3 * 2 ** 12)
         """
@@ -261,7 +266,7 @@ class HalfCenter:
             vThMant=self.HCVthMant,
             compartmentVoltageDecay=self.HCVoltageDecay,
             thresholdBehavior=nx.COMPARTMENT_THRESHOLD_MODE.NO_SPIKE_AND_PASS_V_LG_VTH_TO_PARENT,
-            functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE
+            functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE,
         )
         SpikeGenerator_pt = nx.CompartmentPrototype(
             vThMant = self.SGVthMant,

@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     net = nx.NxNet()
     my_cpg = CentralPatternGenerator(net)
-    my_cpg.stimulate_interneuron()
+    #my_cpg.stimulate_interneuron()
 
     net.run(NUMSTEPS)
     net.disconnect()
