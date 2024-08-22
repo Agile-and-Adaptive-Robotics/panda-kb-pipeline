@@ -58,12 +58,13 @@ class CentralPatternGenerator:
         self.net = net
         self.debug = debug
 
-        self.intIntVth = 10
+        self.intIntVth = 7
         self.intIntVoltageDecay = int(1 / 10 * 2 ** 12)
 
-        self.switchGateVth = 10
+        self.switchGateVth = 7
         self.switchGateVoltageDecay = int(1 / 10 * 2 ** 12)
 
+        self.vMaxExp = 9
 
         self.ExtHC = HalfCenter(self.net, extensor=True)
         self.FlexHC = HalfCenter(self.net)
@@ -81,14 +82,15 @@ class CentralPatternGenerator:
         IntNeuron_pt = nx.CompartmentPrototype(
             vThMant = self.intIntVth,
             compartmentVoltageDecay=self.intIntVoltageDecay,
+            vMaxExp=self.vMaxExp,
             functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE
         )
         IntNeuronGrp = self.net.createCompartmentGroup(size=2, prototype=IntNeuron_pt)
         self.compartments[cpgCxType.ExtensionInterneuron.value] = IntNeuronGrp[0]
         self.compartments[cpgCxType.FlexionInterneuron.value] = IntNeuronGrp[1]
 
-        excitatory_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight=15)
-        halfcenter_link_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY, weight=-15)
+        excitatory_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight=5)
+        halfcenter_link_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY, weight=-3)
 
         self.ExtHC.spikegen_cx.connect(self.ExtensionInterneuron, excitatory_conn_pt)
         self.ExtensionInterneuron.connect(self.FlexHC.halfcenter_cx, halfcenter_link_conn_pt)
@@ -99,12 +101,13 @@ class CentralPatternGenerator:
         SwitchGate_pt = nx.CompartmentPrototype(
             vThMant= self.switchGateVth,
             compartmentVoltageDecay=self.switchGateVoltageDecay,
+            vMaxExp=self.vMaxExp,
             functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE
         )
 
         self.compartments[cpgCxType.SwitchGate.value] = self.net.createCompartment(SwitchGate_pt)
-        switchGate_excitatory_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight=15)
-        switchGate_inhibitory_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY, weight=-15)
+        switchGate_excitatory_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight=12)
+        switchGate_inhibitory_conn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.INHIBITORY, weight=-9)
 
         self.ExtHC.spikegen_cx.connect(self.SwitchGate, switchGate_excitatory_conn_pt)
         self.SwitchGate.connect(self.ExtHC.activationGate, switchGate_inhibitory_conn_pt)
@@ -152,19 +155,19 @@ class CentralPatternGenerator:
 
         ax.legend(['ExtHC', 'FlexHC'])
         plt.show()
-
-    def stimulate_interneuron(self, side = 'extension'):
-        """
-        Stimulate the interneuron on the specified side
-        """
-        if side == 'extension':
+    """FIXME:
+    def stimulate_interneuron(self):
+        
+        #Stimulate the interneuron on the specified side
+        
+        if == 'extension':
             nxSpikeGen = self.net.createSpikeGenProcess(numPorts=1)
             sGenConn_pt = nx.ConnectionPrototype(signMode=nx.SYNAPSE_SIGN_MODE.EXCITATORY, weight = 15)
             nxSpikeGen.connect(self.ExtensionInterneuron, prototype=sGenConn_pt)
             nxSpikeGen.addSpikes([0], [[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]])
         else:
             print("Not implemented yet...")
-
+    """
     @property
     def ExtensionInterneuron(self):
         return self.compartments[cpgCxType.ExtensionInterneuron.value]
@@ -203,7 +206,7 @@ class HalfCenter:
         Spike Generator (SG):
         Functions as the communicate to other neuron trees, or compartments that are external to the neuron tree define in the __core() method
         """   
-        self.SGVthMant = 10
+        self.SGVthMant = 7
         self.SGVoltageDecay = int(1 / 10 * 2 ** 12) # 1/t of the voltage is decayed every time step, it will take t steps to decay to 0
         self.SGCurrentDecay = 4096
         """
@@ -214,7 +217,7 @@ class HalfCenter:
         self.HCVthMant = 7
         self.HCBias = int((self.HCVthMant * 2 ** 6) - 100)
         self.HCCurrentDecay = 4096
-        self.HCVoltageDecay = int(1 / 3 * 2 ** 12)
+        self.HCVoltageDecay = int(1 / 10 * 2 ** 12)
         """
         Sodium Channel (SC): 
         Used to model a persistent sodium channel, sodium Ions are added to the 
@@ -230,14 +233,14 @@ class HalfCenter:
         self.extensor = extensor
         self.ActGateVthMant = 7
         if extensor == True: 
-            self.ActGateBias = int((self.ActGateVthMant / 2) * 2 **6)
+            self.ActGateBias = int((self.ActGateVthMant / 10) * 2 **6)
             self.ActGateCurrentDecay = 4096
             self.ActGateVoltageDecay = int(1 / 100 * 2 ** 12)
 
         else:
             self.ActGateBias = 0
             self.ActGateCurrentDecay = 4096
-            self.ActGateVoltageDecay = int(1 / 3 * 2 ** 12)
+            self.ActGateVoltageDecay = int(1 / 10 * 2 ** 12)
 
         """
         Sodium Ion (NaIon):
@@ -278,6 +281,7 @@ class HalfCenter:
             vThMant=self.ActGateVthMant,
             biasMant = self.ActGateBias,
             compartmentVoltageDecay=self.ActGateVoltageDecay,
+            vMaxExp = self.VMaxExp,
             thresholdBehavior=nx.COMPARTMENT_THRESHOLD_MODE.NO_SPIKE_AND_PASS_V_LG_VTH_TO_PARENT,
             functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE
         )
@@ -285,24 +289,28 @@ class HalfCenter:
             vThMant=self.NaIonVthMant,
             biasMant = self.NaIonBias,
             compartmentVoltageDecay=self.NaIonVoltageDecay,
+            vMaxExp = self.VMaxExp,
             thresholdBehavior=nx.COMPARTMENT_THRESHOLD_MODE.NO_SPIKE_AND_PASS_V_LG_VTH_TO_PARENT,
             functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE
         )
         SodiumChannel_pt = nx.CompartmentPrototype(
             vThMant=self.SCVthMant,
             compartmentVoltageDecay=self.SCVoltageDecay,
+            vMaxExp = self.VMaxExp,
             thresholdBehavior=nx.COMPARTMENT_THRESHOLD_MODE.NO_SPIKE_AND_PASS_V_LG_VTH_TO_PARENT,
             functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE
         )
         HalfCenter_pt = nx.CompartmentPrototype(
             vThMant=self.HCVthMant,
             compartmentVoltageDecay=self.HCVoltageDecay,
+            vMaxExp= self.VMaxExp,
             thresholdBehavior=nx.COMPARTMENT_THRESHOLD_MODE.NO_SPIKE_AND_PASS_V_LG_VTH_TO_PARENT,
             functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE,
         )
         SpikeGenerator_pt = nx.CompartmentPrototype(
             vThMant = self.SGVthMant,
             compartmentVoltageDecay=self.SGVoltageDecay,
+            vMaxExp = self.VMaxExp,
             thresholdBehavior = nx.COMPARTMENT_THRESHOLD_MODE.SPIKE_AND_RESET,
             functionalState=nx.COMPARTMENT_FUNCTIONAL_STATE.IDLE,
         )
