@@ -8,16 +8,31 @@ When working with new or unfamiliar technology it is always best get a sense of 
 
 
 ### Tutorial Directory
-Click on folder/file to brought to the respective documentation on that project
+Click on folder/file to be brought to the respective documentation on that project
 
-| Folder/File    | Short Description  |  
-|---------------|---------------|  
-| led-blink | Contains setup instructions of the LattePanda and KB  |  
-| `dummy-pipeline-1.0`  | Contains various notes and code bases for simple applications of the KB and LattePanda |
-| `dummy-pipeline-2.0`   | Simple code exploring the functionality of the c++ library LibSerial  |
-| `oscillator` |   |
-| `cpp-serial-to-ino`| |
-| `bursting_neuron` | Based on the Loihi implementation found in this paper: [link](https://dl.acm.org/doi/10.1145/3407197.3407205) |
+| Folder/File | Short Description |
+|-------------|-------------------|
+| [led-blink](#led-blink) | Contains setup instructions of the LattePanda and KB |
+| [dummy-pipeline-1.0](#dummy-1) | Contains various notes and code bases for simple applications of the KB and LattePanda |
+| [dummy-pipeline-2.0](#dummy-2) | Simple code exploring the functionality of the c++ library LibSerial |
+| [oscillator](#oscillator) | |
+| [cpp-serial-to-ino](#cpp-serial) | |
+| [bursting_neuron](#bursting-neuron) | Based on the Loihi implementation found in this paper: [link](https://dl.acm.org/doi/10.1145/3407197.3407205) |
 
+## LED Blink<a name="led-blink"></a>
+[Your content for LED Blink project goes here]
 
-## LED Blink <a name="led-blink"></a>
+### Dummy Pipeline 1.0<a name="dummy-1"></a>
+[Your content for Dummy Pipeline 1.0 project goes here]
+
+### Dummy Pipeline 2.0<a name="dummy-2"></a>
+[Your content for Dummy Pipeline 2.0 project goes here]
+
+### Oscillator<a name="oscillator"></a>
+[Your content for Oscillator project goes here]
+
+### CPP Serial to INO<a name="cpp-serial"></a>
+[Your content for CPP Serial to INO project goes here]
+
+### Bursting Neuron<a name="bursting-neuron"></a>
+[Your content for Bursting Neuron project goes here]
