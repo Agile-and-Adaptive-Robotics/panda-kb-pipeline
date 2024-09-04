@@ -11,11 +11,12 @@
 #define USB_SERIAL_PORT "/dev/ttyACM0"
 #define BAUD_RATE 1000000
 
-//int packet loss
+//tracks the number of data packets lost
 int packet_loss = 0;
 
 LibSerial::SerialPort serial_port;
 
+//compiles and uploads the arduino sketch
 void compileAndUpload() {
     const std::string sourceDir = SOURCE_DIR; // Update this to your actual path
     const std::string sketchPath = sourceDir + "/arduino/arduino.ino";
@@ -104,11 +105,6 @@ int main() {
     double packetLossRate = (static_cast<double>(packet_loss) / numSamples) * 100;
     std::cout << "Packet Loss Rate: " << std::setprecision(2) << std::fixed << packetLossRate << "%" << std::endl;
 
-    /*
-    for(size_t i = 0; i < numSamples; ++i){
-        std::cout << "Round-Trip Latency " << i << ": " << roundTripLatencies[i] << " microseconds" << std::endl;
-    }
-    */
     serial_port.Close();
     return 0;
 }

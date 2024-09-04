@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# This script is used to start the Kapoho Bay (KB) board.
+# It is assumed that the KB board is connected to the host machine via USB.
+# Plug board in and run this script. Run this from terminal -> source start-kb.sh
+
 # Source the conda configuration
 source $HOME/anaconda3/etc/profile.d/conda.sh
 

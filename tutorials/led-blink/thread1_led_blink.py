@@ -17,7 +17,7 @@ def monitor_for_spike(panda_board, led, queue, stop_event):
     while not stop_event.is_set(): 
         spike_signal = queue.get(timeout=3) #Blocks for one second
         if spike_signal: 
-            print(f"Spike received from thread id: {threading.get_ident()}")
+            print(f"Spike received from thread id: {threading.get_ident()}")    # Debugging message
             led.write_digital(1) #turn on LED
             time.sleep(1)
             led.write_digital(0) #turn of LED

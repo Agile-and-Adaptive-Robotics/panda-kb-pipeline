@@ -1,6 +1,6 @@
 # Dummy Pipeline 1.0:
 This project is dedicated to setting up the basic framework on how our hardware devices will talk to each other 
-- Eventually the quadruped will be setup with this data pipeline: **BioFeedback** --->**Teensy** ---[SPI]---> **Panda** ---[USB]---> **Loihi (KB)**   
+- Eventually the quadruped will be setup with this data pipeline: **Sensor** --->**Teensy** ---[UART]---> **Panda** ---[USB]---> **Loihi (KB)**   
 - In future iterations we will be using biofeedback sensors in place of the oscillator module found here. We have a student working on a strain gauge sensor from Liquid Wire that is supposed to provide us real-time length sensing. 
 
 ## Design Steps: 
@@ -32,7 +32,7 @@ This project is dedicated to setting up the basic framework on how our hardware 
 See this article for spike encoding [SNNTorch](https://snntorch.readthedocs.io/en/latest/tutorials/tutorial_1.html)
 
 ### UART Communication Considerations:
-- At this time, I'm using a one to one point communication via UART. Of course, this poses issues since we have four Teensy boards that need to communicate with the LattePanda. Future iterations will need to consider using the Arduino Library `SoftwareSerial.h`. The software implementation introduces more latency, and we might need to consider I2C. 
+- At this time, I'm using a one to one point communication via UART. Of course, this poses issues since we have four Teensy boards on the Quadruped that need to communicate with the LattePanda. Future iterations will need to consider using the Arduino Library `SoftwareSerial.h`. The software implementation introduces more latency, and we might need to consider I2C. 
 
 ### Comparison of I2C and UART
 - Below are the considerations of both the LattePanda and Teensy and how they would work together
@@ -137,4 +137,6 @@ void run_encoding(runState *s){
 
 ```
 ### Results 
+[IMPORTANT] - In conclusion, a real time controller using the Loihi will need to purposefully slow down the execution of the Loihi using a control loop. This is because the Loihi will have a run away effect and execute much faster than the other parts of the system. 
+
 ![Alt text](images/testing-throttle-of-loihi.png)

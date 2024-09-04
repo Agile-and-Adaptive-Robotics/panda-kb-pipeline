@@ -195,9 +195,7 @@ if __name__ == "__main__":
     try:
         # Run the board and the pipeline threads
         board.run(NUM_STEP, aSync=True)
-        #encoder_thr.start()
-        #decoder_thr.start()
-        #serial_thr.start()
+
 
        
         # Wait for the board to finish running

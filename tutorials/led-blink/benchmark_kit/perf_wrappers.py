@@ -1,11 +1,11 @@
 import time
 
-'''
-Wrappers to perform generic performance benchmarks
+"""
+Wrappers to perform generic performance benchmarks. This is simply a dummy example to show how to use decorators
+and the potential application for a future submodule implementation. 
 
 Author: Reece Wayt
-
-'''
+"""
 
 #execution_times = []
 
