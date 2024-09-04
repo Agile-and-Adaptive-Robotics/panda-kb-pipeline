@@ -19,13 +19,14 @@ Click on folder/file to be brought to the respective documentation on that proje
 | [cpp-serial-to-ino](#cpp-serial) | |
 | [bursting_neuron](#bursting-neuron) | Based on the Loihi implementation found in this paper: [link](https://dl.acm.org/doi/10.1145/3407197.3407205) |
 
-# Project Descriptions
+# Tutorial Project Descriptions and Documentation
 
 ## LED Blink<a name="led-blink"></a>
-The infamous LED blink program is a great place to start when getting a handle of the hardware. In this tutorial, I connected an LED to the lattePanda's `D13` arduino pin and blinked it whenever a spike was received from the Loihi. Spikes were read by using embedded snips. Lastly the arduino (i.e. ATMega Coprocessor-> [Documentation](http://docs.lattepanda.com/content/3rd_delta_edition/specification/)) is accessed using the PinPong Library. I found this library to be lacking in functionality and tutorials so I ditched it to other methods found in `dummy-pipeline-1.0/2.0`. 
+The infamous LED blink program is a great place to start when getting a handle of new hardware. In this tutorial, I connected an LED to the lattePanda's `D13` arduino pin and blinked it whenever a spike was received from the Loihi. Spikes were read by using embedded snips. Lastly the arduino (i.e. ATMega Coprocessor-> [Documentation](http://docs.lattepanda.com/content/3rd_delta_edition/specification/)) is accessed using the PinPong Library. I found this library to be lacking in functionality and tutorials so I ditched it to other methods found in `dummy-pipeline-1.0/2.0`. 
 
 ### Dummy Pipeline 1.0<a name="dummy-1"></a>
-[Your content for Dummy Pipeline 1.0 project goes here] TODO: 
+Simple UART datapipeline with a simulated oscillator to respresent a form of sensory feedback. In a practical setup, this would emulate a biofeedback sensor but this was beyond my expertise at the time of writing this program. 
+- See `README.md` found in `dummy-pipeline-1.0/` directory for a summary of finding from this setup
 
 ### Dummy Pipeline 2.0<a name="dummy-2"></a>
 [Your content for Dummy Pipeline 2.0 project goes here] TODO: 
@@ -34,7 +35,8 @@ The infamous LED blink program is a great place to start when getting a handle o
 [Your content for Oscillator project goes here] TODO: 
 
 ### CPP Serial to INO<a name="cpp-serial"></a>
-[Your content for CPP Serial to INO project goes here] TODO: 
+This is a small project that was created to perform some simple performance testing of the c++ lib serial library and the speed of the internal serial bus that connect the core process with the sub-processor (arduino).
+- See `README.md` foud in `cpp-serial-to-ino` directory for more details
 
 ### Bursting Neuron<a name="bursting-neuron"></a>
 [Your content for Bursting Neuron project goes here] TODO: 

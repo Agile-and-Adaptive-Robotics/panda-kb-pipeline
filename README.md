@@ -1,4 +1,20 @@
-# panda-kb-pipeline
+# Panda-KapohoBay-Pipeline
+Current project development towards achieving a neuromorphic controller to be implemented on Quadruped. 
+
+## Getting Started 
+### 1. Installing Ubuntu on the LattePanda Delta 3
+-   [Installation Guide](http://docs.lattepanda.com/content/3rd_delta_edition/Operating_Systems_Ubuntu/)
+
+### 2. Clone github repo
+From the bash terminal run: 
+```bash
+git clone https://github.com/Agile-and-Adaptive-Robotics/panda-kb-pipeline.git
+```
+
+### 3. Run setup.sh script
+
+# TODO: ^ add more context here once you've got an answer from Intel
+
 
 
 ### Start Here: 
