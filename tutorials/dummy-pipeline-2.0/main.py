@@ -8,12 +8,12 @@
     - The code demonstrates the use of an axon file which can then be read from the host snips
     - Probes and debugging can be enabled/disabled via command line arguments, see cli_parser() for more information
     - The pipeline uses a simple 4 neuron network with 2 input and 2 output neurons
-    - [IMPORTANT] Spike probe of some sort much be enabled for use of Spike Count register in embedded SNIPs
-    - [IMPORTANT] The pipeline uses a shared library to communicate with the host snips, this is built using the build.sh script
+    - [IMPORTANT] A Spike probe of some sort must be enabled for use of Spike Count register in embedded SNIPs.
+    - [IMPORTANT] The pipeline uses a shared library to communicate with the host snips, this is built using the build.sh script.
     - [IMPORTANT] HOST SNIPs are used due to lower latency but note that SuperHost to Host communication is NOT supported. See NxSDK documentation for more information
 
 @Options: When running the python script there are two options by default debugging and probes are disabled
-          to enable both run `python main.py --debug --probe
+          to enable both run `python main.py --debug --probe`
           --debug [Enables debug logger]
           --probe [Enables probe collection on Loihi
 

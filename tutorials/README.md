@@ -29,10 +29,10 @@ Simple UART datapipeline with a simulated oscillator to respresent a form of sen
 - See `README.md` found in `dummy-pipeline-1.0/` directory for a summary of finding from this setup
 
 ### Dummy Pipeline 2.0<a name="dummy-2"></a>
-[Your content for Dummy Pipeline 2.0 project goes here] TODO: 
+This project is a new iteration of 1.0, but instead the major change is the implementation of host snips to bypass superhost (i.e. NxSDK python script) due to python's inability to handle real time tasks. Host snips are implemented in cpp and have much lower latency and better real time capabilities. This pipeline also implements an LED blinking to signal activations of Neuron 1 or Neuron 2. 
 
 ### Oscillator<a name="oscillator"></a>
-[Your content for Oscillator project goes here] TODO: 
+Oscillator program utilizes a sine wave generator program to stimulate Loihi compartments.
 
 ### CPP Serial to INO<a name="cpp-serial"></a>
 This is a small project that was created to perform some simple performance testing of the c++ lib serial library and the speed of the internal serial bus that connect the core process with the sub-processor (arduino).

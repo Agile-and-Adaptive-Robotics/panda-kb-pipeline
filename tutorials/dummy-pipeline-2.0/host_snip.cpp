@@ -87,7 +87,7 @@ void ReadFromTeensy(int numBytes, std::string channel){
     }
 }
 
-//Spike are on receive channel, read axon IDs and send to Teensy [HOST SNIP ---> TEENSY]
+//Spikes are on receive channel, read axon IDs and send to Teensy [HOST SNIP ---> TEENSY]
 void WriteToTeensy(std::string channel){
     uint32_t data32;
     readChannel(channel.c_str(), &data32, 1);

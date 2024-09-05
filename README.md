@@ -43,15 +43,14 @@ Alternatively run the `start-kb.sh` script:
 ```
 
 ### Project directory: 
-| Folder/File    | Description  |  
-|---------------|---------------|  
+| Folder/File           | Description                               |  
+|-----------------------|---------------|  
 | `latte-panda-setup/`  | Contains setup instructions of the LattePanda and KB  |  
-| `tutorials/`  | Contains various notes and code bases for simple applications of the KB and LattePanda |
-| `totorials/cpp-serial-to-ino `   | Simple code exploring the functionality of the c++ library LibSerial  |
-| `tutorials/dummy-pipeline-1.0` |  The purpose of this code base was to test and get familiar with NxSDK Snip functionality  |
-| `tutorials/dummy-pipeline-2.0`| |
-| `tutorials/led-blink` |  |
-| `oscillator` | | 
+| `tutorials/`          | Contains various notes and code bases for simple applications of the KB and LattePanda |
+| `lib/`                | Contains a CPG library I created but is still under development- parameters need optimized and tuned |
+| `src/`                | Place to hold main application                                                                       |
+| `nxsdk/`              | Holds the NxSDK Tarball files and NxSDK documentation executable                                     |
+| `utils/`              | Holds utility files, currently the loihi math widget can be found here                               |
 
 
 ### Neural Encodings: 

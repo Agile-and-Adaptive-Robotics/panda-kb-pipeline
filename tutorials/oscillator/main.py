@@ -230,7 +230,6 @@ if __name__ == '__main__':
                     # print("Spiking neuron 2")
                     spikeGen2.sendSpikes(spikeInputPortNodeIds=[1], numSpikes=[1])
             
-            #TODO: fix this tomorrow
             total_spikes_sent += 1
             
 
