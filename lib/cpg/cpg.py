@@ -1,7 +1,8 @@
 ##########################################################################################################################
 # @File Name: cpg.py
 # @Description: This file contains the implementation of the Central Pattern Generator (CPG) using the Loihi
-#             neuromorphic chip. TODO: Add more details
+#             neuromorphic chip. [IMPORTANT] - The cpg library is simply an architectural idea that is suited for the loihi
+#             there is still a lot of optimization and numberical work that needs to be done to make this library functional
 #
 # @Author: Reece Wayt
 #
